@@ -380,11 +380,13 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
   activityState: string
   onContinue: () => void
 }) {
-  const typeLabel = {
+  
+  const typeLabel: Record<string, string> = {
     multiple_choice: 'Opción múltiple',
     true_false: 'Verdadero / Falso',
     open: 'Pregunta abierta',
-  }[question.question_type]
+  }
+  const label = typeLabel[question.question_type] || 'Pregunta'
 
   const showForm = activityState === 'paused_question'
   const showContinue = activityState === 'time_up'
@@ -392,7 +394,7 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
   return (
     <div className="bg-parchment-50 rounded-sm shadow-raised border border-parchment-200 overflow-hidden">
       <div className="bg-crimson-500 px-5 py-3 flex items-center justify-between">
-        <span className="text-parchment-100 text-xs font-mono uppercase tracking-wider">⏸ {typeLabel}</span>
+        <span className="text-parchment-100 text-xs font-mono uppercase tracking-wider">⏸ {label}</span>
         <span className="text-parchment-200 text-xs font-mono">{question.points} pts</span>
       </div>
 

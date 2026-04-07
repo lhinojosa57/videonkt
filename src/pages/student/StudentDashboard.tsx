@@ -36,7 +36,7 @@ async function loadAssignments() {
     }
 
     // 2. Buscar actividades de esos grupos
-    const { data: assignmentsData, error } = await supabase
+    const { data: assignmentsData } = await supabase
       .from('video_assignments')
       .select(`
         *,

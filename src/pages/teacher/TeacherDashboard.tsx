@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
-import { Users, Plus, ArrowRight } from 'lucide-react'
+import { Users, ArrowRight } from 'lucide-react'
 
 interface Stats { groups: number }
 

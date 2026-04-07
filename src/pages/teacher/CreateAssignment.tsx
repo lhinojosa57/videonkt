@@ -2,16 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
+import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 
 const supabase = SupabaseTypes.supabase
-const MATERIAS = SupabaseTypes.MATERIAS
-type Question = SupabaseTypes.Question
 type QuestionType = SupabaseTypes.QuestionType
 type QuestionOption = SupabaseTypes.QuestionOption
-type NEMContenido = SupabaseTypes.NEMContenido
-type NEMAprendizaje = SupabaseTypes.NEMAprendizaje
-
-import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock } from 'lucide-react'
 
 interface QuestionForm {
   id?: string
@@ -53,6 +48,7 @@ function newQuestion(order: number): QuestionForm {
     order_index: order,
   }
 }
+
 export default function CreateAssignment() {
   const { profile } = useAuth()
   const navigate = useNavigate()
@@ -60,9 +56,6 @@ export default function CreateAssignment() {
   const isEdit = !!editId
 
   const [groups, setGroups] = useState<any[]>([])
-  const [contenidos, setContenidos] = useState<NEMContenido[]>([])
-  const [filteredContenidos, setFilteredContenidos] = useState<NEMContenido[]>([])
-  const [searchContenido, setSearchContenido] = useState('')
   const [saving, setSaving] = useState(false)
   const [expandedQ, setExpandedQ] = useState<number | null>(0)
 
@@ -75,37 +68,32 @@ export default function CreateAssignment() {
     due_date: '',
     is_published: false,
   })
-
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
-  const [selectedMateria, setSelectedMateria] = useState<string>('')
-  const [selectedCampoFormativo, setSelectedCampoFormativo] = useState('')
+
+  const [contenidos, setContenidos] = useState<any[]>([])
   const [aprendizajes, setAprendizajes] = useState<any[]>([])
+  const [searchContenido, setSearchContenido] = useState('')
+  const [searchAprendizaje, setSearchAprendizaje] = useState('')
 
   useEffect(() => {
     if (!profile?.id) return
-    supabase.from('groups').select('id, name, materia').eq('teacher_id', profile!.id).then(({ data }) => setGroups(data ?? []))
-    supabase.from('nem_contenidos').select('*, campo_formativo:nem_campos_formativos(codigo, nombre)').then(({ data }) => setContenidos(data ?? []))
-    supabase.from('nem_aprendizajes').select('*').then(({ data }) => setAprendizajes(data ?? []))
-    
+    supabase.from('groups').select('id, name').eq('teacher_id', profile!.id).then(({ data }) => setGroups(data ?? []))
+    supabase.from('contenidos_nem').select('*').order('codigo').then(({ data }) => setContenidos(data ?? []))
     if (isEdit) {
       supabase.from('video_assignments').select('*').eq('id', editId).single().then(({ data }) => {
-        if (data) {
-          setForm({
-            group_id: data.group_id,
-            title: data.title,
-            topic: data.topic,
-            objective: data.objective ?? '',
-            nem_proceso: data.nem_proceso ?? '',
-            nem_contenido_id: data.nem_contenido_id ?? '',
-            video_url: data.video_url,
-            due_date: data.due_date ? data.due_date.substring(0, 16) : '',
-            is_published: data.is_published,
-          })
-        }
+        if (data) setForm({
+          group_id: data.group_id,
+          title: data.title,
+          nem_contenido_id: data.nem_contenido_id ?? '',
+          nem_aprendizaje_id: data.nem_aprendizaje_id ?? '',
+          video_url: data.video_url,
+          due_date: data.due_date ? data.due_date.substring(0, 16) : '',
+          is_published: data.is_published,
+        })
       })
       supabase.from('questions').select('*').eq('assignment_id', editId).order('order_index').then(({ data }) => {
         if (data && data.length > 0) {
-          setQuestions(data.map((q: Question) => ({
+          setQuestions(data.map((q: any) => ({
             ...q,
             correct_answer: q.correct_answer ?? '',
             options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
@@ -116,42 +104,12 @@ export default function CreateAssignment() {
   }, [profile?.id, isEdit, editId])
 
   useEffect(() => {
-    const selected = groups.find(g => g.id === form.group_id)
-    if (selected?.materia) {
-      setSelectedMateria(selected.materia)
-      const campoCode = SupabaseTypes.getCampoFormativoCodigo(selected.materia as any)
-      const campo = ['LEN', 'SAB', 'ETI', 'HUM'].find(c => c === campoCode)
-      const nombres: any = {
-        'LEN': 'Lenguajes',
-        'SAB': 'Saberes y Pensamiento Científico',
-        'ETI': 'Ética, Naturaleza y Sociedades',
-        'HUM': 'De lo Humano y lo Comunitario'
-      }
-      setSelectedCampoFormativo(campo ? nombres[campo] : '')
+    if (form.nem_contenido_id) {
+      supabase.from('pdas').select('*').eq('contenido_id', form.nem_contenido_id).order('descripcion').then(({ data }) => setAprendizajes(data ?? []))
     } else {
-      setSelectedMateria('')
-      setSelectedCampoFormativo('')
+      setAprendizajes([])
     }
-  }, [form.group_id, groups])
-
-  useEffect(() => {
-    if (!selectedMateria) {
-      setFilteredContenidos([])
-      return
-    }
-    const filtered = contenidos.filter(c => c.materia === selectedMateria)
-    if (searchContenido.trim()) {
-      const normalize = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      const searchNorm = normalize(searchContenido)
-      setFilteredContenidos(filtered.filter(c => {
-        const codigo = normalize(c.codigo || '')
-        const contenido = normalize(c.nombre || '')
-        return codigo.includes(searchNorm) || nombre.includes(searchNorm)
-      }))
-    } else {
-      setFilteredContenidos(filtered)
-    }
-  }, [selectedMateria, searchContenido, contenidos])
+  }, [form.nem_contenido_id])
 
   const handleSave = async (publish = false) => {
     if (!profile?.id || !form.group_id || !form.title || !form.video_url) {
@@ -159,32 +117,14 @@ export default function CreateAssignment() {
       return
     }
     setSaving(true)
-    const payload = { 
-      group_id: form.group_id,
-      teacher_id: profile!.id,
-      title: form.title,
-      topic: form.title,
-      nem_contenido_id: form.nem_contenido_id || null,
-      aprendizaje_id: form.nem_aprendizaje_id || null,
-      video_url: form.video_url,
-      due_date: form.due_date || null,
-      is_published: publish || form.is_published
-    }
-   console.log('📤 Enviando payload:', payload)
+    const payload = { ...form, teacher_id: profile!.id, is_published: publish || form.is_published, due_date: form.due_date || null }
     let assignmentId = editId
 
     if (isEdit) {
       await supabase.from('video_assignments').update(payload).eq('id', editId)
       await supabase.from('questions').delete().eq('assignment_id', editId)
     } else {
-      const { data, error } = await supabase.from('video_assignments').insert(payload).select().single()
-      if (error) {
-        console.error('❌ Error al crear actividad:', error)
-        alert(`Error: ${error.message}`)
-        setSaving(false)
-        return
-    }
-
+      const { data } = await supabase.from('video_assignments').insert(payload).select().single()
       assignmentId = data?.id
     }
 
@@ -229,7 +169,22 @@ export default function CreateAssignment() {
       : q
     ))
   }
-return (
+
+  const normalize = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const searchNormContenido = normalize(searchContenido)
+  const filteredContenidos = contenidos.filter(c => {
+    const codigo = normalize(c.codigo || '')
+    const nombre = normalize(c.nombre || '')
+    return codigo.includes(searchNormContenido) || nombre.includes(searchNormContenido)
+  })
+
+  const searchNormAprendizaje = normalize(searchAprendizaje)
+  const filteredAprendizajes = aprendizajes.filter(a => {
+    const desc = normalize(a.descripcion || '')
+    return desc.includes(searchNormAprendizaje)
+  })
+
+  return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate('/teacher/assignments')} className="text-ink-400 hover:text-ink-700 p-1.5 rounded hover:bg-sepia-100 transition-colors">
@@ -247,14 +202,13 @@ return (
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
             Información general
           </h2>
-
-<div className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 md:col-span-1">
                 <label className="label-style">Grupo *</label>
                 <select value={form.group_id} onChange={e => setForm(f => ({ ...f, group_id: e.target.value }))} className="input-style w-full">
                   <option value="">Seleccionar grupo…</option>
-                  {groups.map(g => <option key={g.id} value={g.id}>{g.name} · {g.materia}</option>)}
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
               <div className="col-span-2 md:col-span-1">
@@ -262,69 +216,56 @@ return (
                 <input type="datetime-local" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="input-style w-full" />
               </div>
             </div>
-
-            {selectedCampoFormativo && (
-              <div>
-                <label className="label-style">Campo Formativo</label>
-                <input 
-                  type="text" 
-                  value={selectedCampoFormativo}
-                  disabled
-                  className="input-style w-full bg-sepia-100 text-ink-600 cursor-not-allowed"
-                />
-              </div>
-            )}
-
             <div>
               <label className="label-style">Título de la actividad *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="ej. La célula y sus organelos" className="input-style w-full" />
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="ej. La Revolución Mexicana – Causas y antecedentes" className="input-style w-full" />
             </div>
-
-            {selectedMateria && (
-              <>
-                <div>
-                  <label className="label-style">Contenido NEM ({selectedMateria})</label>
-                  <input 
-                    type="text" 
-                    value={searchContenido}
-                    onChange={e => setSearchContenido(e.target.value)}
-                    placeholder="Buscar por código o contenido..."
-                    className="input-style w-full mb-2"
-                  />
-                  <select value={form.nem_contenido_id} onChange={e => setForm(f => ({ ...f, nem_contenido_id: e.target.value, nem_aprendizaje_id: '' }))} className="input-style w-full">
-                    <option value="">Seleccionar contenido (opcional)…</option>
-                    {filteredContenidos.map(c => (
-                      <option key={c.id} value={c.id}>
-                      [{c.codigo}] {c.nombre || 'Sin descripción'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {form.nem_contenido_id && (
-                  <div>
-                    <label className="label-style">Proceso de Desarrollo de Aprendizaje (PDA)</label>
-                    <select 
-                      value={form.nem_aprendizaje_id} 
-                      onChange={e => setForm(f => ({ ...f, nem_aprendizaje_id: e.target.value }))} 
-                      className="input-style w-full"
-                    >
-                      <option value="">Seleccionar PDA (opcional)…</option>
-                      {aprendizajes
-                        .filter(a => a.contenido_id === form.nem_contenido_id)
-                        .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-                        .map(a => (
-                          <option key={a.id} value={a.id}>
-                            {a.descripcion}
-                          </option>
-                       ))}
-                    </select>
-                  </div>
-                )}
-              </>
+            <div>
+              <label className="label-style">Contenido NEM</label>
+              <input
+                type="text"
+                value={searchContenido}
+                onChange={e => setSearchContenido(e.target.value)}
+                placeholder="Buscar contenido NEM..."
+                className="input-style w-full mb-2"
+              />
+              <select
+                value={form.nem_contenido_id}
+                onChange={e => setForm(f => ({ ...f, nem_contenido_id: e.target.value, nem_aprendizaje_id: '' }))}
+                className="input-style w-full"
+                size={5}
+              >
+                <option value="">Seleccionar contenido…</option>
+                {filteredContenidos.map(c => (
+                  <option key={c.id} value={c.id}>[{c.codigo}] {c.nombre}</option>
+                ))}
+              </select>
+            </div>
+            {form.nem_contenido_id && (
+              <div>
+                <label className="label-style">Proceso de Desarrollo de Aprendizaje (PDA)</label>
+                <input
+                  type="text"
+                  value={searchAprendizaje}
+                  onChange={e => setSearchAprendizaje(e.target.value)}
+                  placeholder="Buscar PDA..."
+                  className="input-style w-full mb-2"
+                />
+                <select
+                  value={form.nem_aprendizaje_id}
+                  onChange={e => setForm(f => ({ ...f, nem_aprendizaje_id: e.target.value }))}
+                  className="input-style w-full"
+                  size={3}
+                >
+                  <option value="">Seleccionar PDA…</option>
+                  {filteredAprendizajes.map(a => (
+                    <option key={a.id} value={a.id}>{a.descripcion}</option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
-        </div>          
+        </div>
 
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
@@ -333,8 +274,8 @@ return (
           </h2>
           <div>
             <label className="label-style">URL del video *</label>
-            <input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} placeholder="https://www.youtube.com/watch?v=…" className="input-style w-full font-mono text-sm" />
-            <p className="text-xs text-ink-400 mt-1.5 font-body">Compatible con YouTube</p>
+            <input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} placeholder="https://www.youtube.com/watch?v=… o https://vimeo.com/…" className="input-style w-full font-mono text-sm" />
+            <p className="text-xs text-ink-400 mt-1.5 font-body">Compatible con YouTube. Usa el formato: https://www.youtube.com/watch?v=ID del video. El video debe estar aprobado para tu organización.</p>
           </div>
         </div>
 
@@ -397,6 +338,7 @@ return (
     </div>
   )
 }
+
 function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption, onRemove }: {
   q: QuestionForm; idx: number; isExpanded: boolean
   onToggle: () => void; onUpdate: (p: Partial<QuestionForm>) => void
@@ -492,7 +434,7 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
 
           {q.question_type === 'open' && (
             <div className="bg-sepia-100 rounded p-3 text-sm font-body text-ink-500 border border-parchment-200">
-              💬 El estudiante escribirá su respuesta. Se registra para revisión del docente.
+              💬 El estudiante escribirá su respuesta. No se califica automáticamente, pero se registra para revisión del docente.
             </div>
           )}
         </div>
