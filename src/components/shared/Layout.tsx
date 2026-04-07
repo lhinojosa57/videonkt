@@ -23,8 +23,8 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-sepia-100 flex">
-      <aside className="w-60 bg-ink-900 flex flex-col shadow-raised flex-shrink-0">
+    <div className="min-h-screen bg-gray-50 flex">
+      <aside className="w-60 bg-gray-900 flex flex-col shadow-raised flex-shrink-0">
         <div className="p-5 border-b border-ink-700">
           <div className="flex items-center gap-3">
             <img src="/logo-nikola-tesla.png" alt="Colegio Nikola Tesla" className="w-10 h-10 object-contain" />
