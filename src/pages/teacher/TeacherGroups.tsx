@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
-import type { Group } from '../../lib/supabase'
+// import type { Group } from '../../lib/supabase'
 import { Plus, Users, Copy, Check, Trash2, X, Edit2 } from 'lucide-react'
 
 interface GroupWithCount {
@@ -87,7 +87,7 @@ export default function TeacherGroups() {
         .update({
           name: form.name,
           description: form.description || null,
-          grade: form.grade || null,
+          grado: form.grado || null,
           school_year: form.school_year,
         })
         .eq('id', editingGroup)
