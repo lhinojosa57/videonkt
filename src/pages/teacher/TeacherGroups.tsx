@@ -76,24 +76,46 @@ export default function TeacherGroups() {
     setShowModal(true)
   }
 
-  const handleSave = async () => {
+const handleSave = async () => {
     if (!profile || !form.name.trim()) return
     setSaving(true)
 
-    if (editingGroup) {
-      await supabase
-        .from('groups')
-        .update({
+    try {
+      if (editingGroup) {
+        const { error } = await supabase
+          .from('groups')
+          .update({
+            name: form.name,
+            description: form.description || null,
+            grado: form.grado || null,
+            materias: form.materias,
+            school_year: form.school_year,
+          })
+          .eq('id', editingGroup)
+        
+        if (error) {
+          console.error('Error al actualizar:', error)
+          alert(`Error: ${error.message}`)
+          setSaving(false)
+          return
+        }
+      } else {
+        const { error } = await supabase.from('groups').insert({ 
           name: form.name,
           description: form.description || null,
           grado: form.grado || null,
           materias: form.materias,
           school_year: form.school_year,
+          teacher_id: profile.id 
         })
-        .eq('id', editingGroup)
-    } else {
-      await supabase.from('groups').insert({ ...form, teacher_id: profile.id })
-    }
+        
+        if (error) {
+          console.error('Error al crear:', error)
+          alert(`Error: ${error.message}`)
+          setSaving(false)
+          return
+        }
+      }
 
     setSaving(false)
     setShowModal(false)
