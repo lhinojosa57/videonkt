@@ -12,7 +12,24 @@ export default function TeacherGroups() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+  const [form, setForm] = useState({ 
+  name: '', 
+  description: '', 
+  grado: '', 
+  materias: [] as string[], 
+  school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) 
+  })
+
+  const GRADOS = ['1° Secundaria', '2° Secundaria', '3° Secundaria', 'Multigrado']
+
+  const MATERIAS = [
+  'Historia', 'Geografía', 'Formación Cívica y Ética',
+  'Biología', 'Física', 'Química',
+  'Matemáticas', 'Español', 'Inglés',
+  'Artes', 'Educación Física', 'Tecnología'
+  ]
+
+
   const [saving, setSaving] = useState(false)
   const [editingGroup, setEditingGroup] = useState<string | null>(null)
 
@@ -30,20 +47,21 @@ export default function TeacherGroups() {
   useEffect(() => { loadGroups() }, [profile])
 
   const handleOpenCreate = () => {
-    setEditingGroup(null)
-    setForm({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
-    setShowModal(true)
-  }
+  setEditingGroup(null)
+  setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+  setShowModal(true)
+  }  
 
   const handleOpenEdit = (group: GroupWithCount) => {
-    setEditingGroup(group.id)
-    setForm({
-      name: group.name,
-      description: group.description ?? '',
-      grade: group.grade ?? '',
-      school_year: group.school_year ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
-    })
-    setShowModal(true)
+  setEditingGroup(group.id)
+  setForm({
+    name: group.name,
+    description: group.description ?? '',
+    grado: group.grado ?? '',
+    materias: group.materias ?? [],
+    school_year: group.school_year ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
+  })
+  setShowModal(true)
   }
 
   const handleSave = async () => {
@@ -68,7 +86,7 @@ export default function TeacherGroups() {
 
     setSaving(false)
     setShowModal(false)
-    setForm({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+    setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
     setEditingGroup(null)
     loadGroups()
   }
@@ -182,10 +200,17 @@ export default function TeacherGroups() {
                   className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green focus:ring-1 focus:ring-tesla-green/30"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Grado</label>
-                  <input value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} placeholder="ej. 2° Secundaria" className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green" />
+                  <select 
+                    value={form.grado} 
+                    onChange={e => setForm(f => ({ ...f, grado: e.target.value }))} 
+                    className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400 cursor-pointer"
+                  >
+                    <option value="">Seleccionar…</option>
+                    {GRADOS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Ciclo escolar</label>
@@ -196,7 +221,32 @@ export default function TeacherGroups() {
                 <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Descripción (opcional)</label>
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green resize-none" />
               </div>
+<div>
+                <label className="text-sm font-body font-medium text-ink-700 block mb-2">Materias (selecciona hasta 3)</label>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-parchment-200 rounded p-3 bg-white">
+                  {MATERIAS.map(m => (
+                    <label key={m} className="flex items-center gap-2 cursor-pointer hover:bg-sepia-100 p-1.5 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={form.materias.includes(m)}
+                        onChange={e => {
+                          if (e.target.checked && form.materias.length < 3) {
+                            setForm(f => ({ ...f, materias: [...f.materias, m] }))
+                          } else if (!e.target.checked) {
+                            setForm(f => ({ ...f, materias: f.materias.filter(mat => mat !== m) }))
+                          }
+                        }}
+                        disabled={!form.materias.includes(m) && form.materias.length >= 3}
+                        className="w-4 h-4 accent-gold-500"
+                      />
+                      <span className="text-sm text-ink-700">{m}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-ink-400 mt-1.5">Seleccionadas: {form.materias.join(', ') || 'Ninguna'}</p>
+              </div>
             </div>
+
             <div className="flex gap-3 p-6 pt-0">
               <button onClick={() => setShowModal(false)} className="flex-1 border border-parchment-300 text-ink-700 py-2.5 rounded-sm font-body hover:bg-sepia-100 transition-colors">Cancelar</button>
               <button onClick={handleSave} disabled={!form.name.trim() || saving} className="flex-1 bg-crimson-500 text-parchment-50 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors">
