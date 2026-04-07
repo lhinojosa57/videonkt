@@ -154,52 +154,65 @@ async function handleAllowRetry() {
     
     if (!confirmed) return
 
-    // Borrar la sesión actual (esto también borrará las respuestas por CASCADE)
-    await supabase
-      .from('student_sessions')
-      .delete()
-      .eq('id', selectedSession.session_id)
+    try {
+      // Borrar la sesión actual (esto también borrará las respuestas por CASCADE)
+      const { error } = await supabase
+        .from('student_sessions')
+        .delete()
+        .eq('id', selectedSession.session_id)
 
-    // Recargar datos
-    setSelectedSession(null)
-    
-    // Recargar la tabla
-    if (!profile?.id) return
-    const { data: myAssignments } = await supabase
-      .from('video_assignments')
-      .select('id, title')
-      .eq('teacher_id', profile!.id)
-      .order('created_at', { ascending: false })
+      if (error) {
+        console.error('Error al borrar sesión:', error)
+        alert(`Error: ${error.message}\n\nEs posible que no tengas permiso para borrar esta sesión.`)
+        return
+      }
 
-    const assignmentIds = (myAssignments ?? []).map((a: any) => a.id)
+      alert('✅ Sesión borrada. El estudiante puede volver a hacer la actividad.')
 
-    if (assignmentIds.length === 0) return
+      // Recargar datos
+      setSelectedSession(null)
+      
+      // Recargar la tabla
+      if (!profile?.id) return
+      const { data: myAssignments } = await supabase
+        .from('video_assignments')
+        .select('id, title')
+        .eq('teacher_id', profile!.id)
+        .order('created_at', { ascending: false })
 
-    const { data: sessions } = await supabase
-      .from('student_sessions')
-      .select(`
-        id, started_at, completed_at, duration_seconds, score, is_completed,
-        profile:profiles!student_id(full_name, email),
-        assignment:video_assignments!assignment_id(title, topic, group:groups(name))
-      `)
-      .in('assignment_id', assignmentIds)
-      .order('started_at', { ascending: false })
+      const assignmentIds = (myAssignments ?? []).map((a: any) => a.id)
 
-    const mapped: ReportRow[] = (sessions ?? []).map((s: any) => ({
-      student_name: s.profile?.full_name ?? 'Desconocido',
-      student_email: s.profile?.email ?? '',
-      assignment_title: s.assignment?.title ?? '',
-      topic: s.assignment?.topic ?? '',
-      group_name: s.assignment?.group?.name ?? '',
-      started_at: s.started_at,
-      completed_at: s.completed_at,
-      duration_seconds: s.duration_seconds ?? 0,
-      score: Math.round(s.score ?? 0),
-      is_completed: s.is_completed,
-      session_id: s.id,
-    }))
-    setRows(mapped)
-    setFiltered(mapped)
+      if (assignmentIds.length === 0) return
+
+      const { data: sessions } = await supabase
+        .from('student_sessions')
+        .select(`
+          id, started_at, completed_at, duration_seconds, score, is_completed,
+          profile:profiles!student_id(full_name, email),
+          assignment:video_assignments!assignment_id(title, topic, group:groups(name))
+        `)
+        .in('assignment_id', assignmentIds)
+        .order('started_at', { ascending: false })
+
+      const mapped: ReportRow[] = (sessions ?? []).map((s: any) => ({
+        student_name: s.profile?.full_name ?? 'Desconocido',
+        student_email: s.profile?.email ?? '',
+        assignment_title: s.assignment?.title ?? '',
+        topic: s.assignment?.topic ?? '',
+        group_name: s.assignment?.group?.name ?? '',
+        started_at: s.started_at,
+        completed_at: s.completed_at,
+        duration_seconds: s.duration_seconds ?? 0,
+        score: Math.round(s.score ?? 0),
+        is_completed: s.is_completed,
+        session_id: s.id,
+      }))
+      setRows(mapped)
+      setFiltered(mapped)
+    } catch (err) {
+      console.error('Error inesperado:', err)
+      alert('Error inesperado. Ver consola del navegador.')
+    }
   }
 
   useEffect(() => {

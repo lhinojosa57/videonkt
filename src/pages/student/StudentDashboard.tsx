@@ -183,7 +183,7 @@ const handleJoinGroup = async () => {
                     ) : isInProgress ? (
                       <Clock className="w-6 h-6 text-gold-600" />
                     ) : (
-                      <PlayCircle className="w-6 h-6 text-crimson-500" />
+                      <PlayCircle className="w-6 h-6 text-gray-500" />
                     )}
                   </div>
 
@@ -206,7 +206,7 @@ const handleJoinGroup = async () => {
                           <div>
                             <span className={`font-mono font-bold text-xl ${
                               session.score >= 80 ? 'text-green-700' :
-                              session.score >= 60 ? 'text-gold-600' : 'text-crimson-500'
+                              session.score >= 60 ? 'text-gold-600' : 'text-gray-500'
                             }`}>
                               {Math.round(session.score)}
                             </span>
