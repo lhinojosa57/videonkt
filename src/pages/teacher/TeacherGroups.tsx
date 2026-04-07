@@ -4,7 +4,19 @@ import { supabase } from '../../lib/supabase'
 import type { Group } from '../../lib/supabase'
 import { Plus, Users, Copy, Check, Trash2, X, Edit2 } from 'lucide-react'
 
-interface GroupWithCount extends Group { student_count: number }
+interface GroupWithCount {
+  id: string
+  teacher_id: string
+  name: string
+  description: string | null
+  grado: string | null
+  materias: string[]
+  school_year: string | null
+  invite_code: string
+  created_at: string
+  updated_at: string
+  student_count: number
+}
 
 export default function TeacherGroups() {
   const { profile } = useAuth()
@@ -81,7 +93,7 @@ export default function TeacherGroups() {
         .eq('id', editingGroup)
     } else {
       // INSERT
-      await supabase.from('groups').insert({ ...form, teacher_id: profile.id, subject: 'Historia' })
+      await supabase.from('groups').insert({ ...form, teacher_id: profile.id })
     }
 
     setSaving(false)
@@ -139,7 +151,12 @@ export default function TeacherGroups() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <h3 className="font-display text-lg font-semibold text-ink-800">{group.name}</h3>
-                  {group.grade && <p className="text-sm text-ink-500 font-body">{group.grade} · {group.school_year}</p>}
+                  <div className="text-sm text-ink-500 font-body space-y-0.5">
+  		    {group.grado && <p>{group.grado} · {group.school_year}</p>}
+  		    {group.materias && group.materias.length > 0 && (
+		      <p className="text-xs text-gold-600">📚 {group.materias.join(', ')}</p>
+  		    )}
+		  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
