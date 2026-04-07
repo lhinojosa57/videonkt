@@ -13,6 +13,7 @@ interface GroupWithCount {
   materias: string[]
   school_year: string | null
   invite_code: string
+  archived: boolean
   created_at: string
   updated_at: string
   student_count: number
@@ -23,6 +24,7 @@ export default function TeacherGroups() {
   const [groups, setGroups] = useState<GroupWithCount[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [form, setForm] = useState({ 
   name: '', 
@@ -103,9 +105,10 @@ export default function TeacherGroups() {
     loadGroups()
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este grupo? Se borrarán todas sus actividades.')) return
-    await supabase.from('groups').delete().eq('id', id)
+  const handleArchive = async (id: string, currentArchived: boolean) => {
+    const action = currentArchived ? 'desarchivar' : 'archivar'
+    if (!confirm(`¿Seguro que quieres ${action} este grupo?`)) return
+    await supabase.from('groups').update({ archived: !currentArchived }).eq('id', id)
     loadGroups()
   }
 
@@ -115,13 +118,41 @@ export default function TeacherGroups() {
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
+const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.filter(g => !g.archived)
+
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-ink-900">Grupos</h1>
-          <p className="font-body text-ink-600 mt-1">Administra tus grupos de estudiantes</p>
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-ink-900">Grupos</h1>
+            <p className="font-body text-ink-600 mt-1">Administra tus grupos de estudiantes</p>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors shadow-manuscript"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo grupo
+          </button>
         </div>
+        
+        {/* Toggle archivados */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowArchived(false)}
+            className={`px-4 py-2 rounded-sm text-sm font-body font-medium transition-colors ${!showArchived ? 'bg-ink-800 text-parchment-100' : 'bg-parchment-100 text-ink-600 border border-parchment-300 hover:bg-sepia-100'}`}
+          >
+            Activos ({groups.filter(g => !g.archived).length})
+          </button>
+          <button
+            onClick={() => setShowArchived(true)}
+            className={`px-4 py-2 rounded-sm text-sm font-body font-medium transition-colors ${showArchived ? 'bg-ink-800 text-parchment-100' : 'bg-parchment-100 text-ink-600 border border-parchment-300 hover:bg-sepia-100'}`}
+          >
+            Archivados ({groups.filter(g => g.archived).length})
+          </button>
+        </div>
+      </div>
         <button
           onClick={handleOpenCreate}
           className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors shadow-manuscript"
@@ -135,18 +166,24 @@ export default function TeacherGroups() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[...Array(3)].map((_, i) => <div key={i} className="h-40 bg-parchment-200 rounded-sm animate-pulse" />)}
         </div>
-      ) : groups.length === 0 ? (
+      ) : filteredGroups.length === 0 ? (
         <div className="text-center py-20 bg-parchment-50 rounded-sm border border-parchment-200 shadow-manuscript">
           <Users className="w-16 h-16 mx-auto mb-4 text-parchment-300" />
-          <p className="font-display text-xl text-ink-700 mb-2">Sin grupos todavía</p>
-          <p className="font-body text-ink-500 mb-6">Crea tu primer grupo para comenzar a asignar actividades</p>
+          <p className="font-display text-xl text-ink-700 mb-2">
+            {showArchived ? 'Sin grupos archivados' : 'Sin grupos activos'}
+          </p>
+          <p className="font-body text-ink-500 mb-6">
+            {showArchived 
+              ? 'Los grupos archivados aparecerán aquí' 
+              : 'Crea tu primer grupo para comenzar a asignar actividades'}
+          </p>
           <button onClick={handleOpenCreate} className="bg-crimson-500 text-parchment-50 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
             Crear grupo
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {groups.map(group => (
+          {filteredGroups.map(group => (
             <div key={group.id} className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-5 hover:shadow-raised transition-shadow">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
@@ -166,9 +203,13 @@ export default function TeacherGroups() {
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleDelete(group.id)} className="text-ink-300 hover:text-crimson-500 transition-colors p-1.5" title="Eliminar grupo">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                 <button 
+                  onClick={() => handleArchive(group.id, group.archived)} 
+                  className="text-ink-300 hover:text-gold-500 transition-colors p-1"
+                  title={group.archived ? 'Desarchivar' : 'Archivar'}
+                >
+                  {group.archived ? '📂' : '📁'}
+                </button>
                 </div>
               </div>
 
