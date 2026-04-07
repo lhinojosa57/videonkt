@@ -1,7 +1,7 @@
 // import React from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { LogOut, BookOpen, Users, Home, Video, BarChart2 } from 'lucide-react'
+import { LogOut, Users, Home, Video, BarChart2 } from 'lucide-react'
 
 export default function Layout() {
   const { profile, signOut } = useAuth()
