@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
-// import type { Group } from '../../lib/supabase'
-import { Plus, Users, Copy, Check, Trash2, X, Edit2 } from 'lucide-react'
+import { Plus, Users, Copy, Check, X, Edit2 } from 'lucide-react'
 
 interface GroupWithCount {
   id: string
@@ -27,22 +26,21 @@ export default function TeacherGroups() {
   const [showArchived, setShowArchived] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [form, setForm] = useState({ 
-  name: '', 
-  description: '', 
-  grado: '', 
-  materias: [] as string[], 
-  school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) 
+    name: '', 
+    description: '', 
+    grado: '', 
+    materias: [] as string[], 
+    school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) 
   })
 
   const GRADOS = ['1° Secundaria', '2° Secundaria', '3° Secundaria', 'Multigrado']
 
   const MATERIAS = [
-  'Historia', 'Geografía', 'Formación Cívica y Ética',
-  'Biología', 'Física', 'Química',
-  'Matemáticas', 'Español', 'Inglés',
-  'Artes', 'Educación Física', 'Tecnología'
+    'Historia', 'Geografía', 'Formación Cívica y Ética',
+    'Biología', 'Física', 'Química',
+    'Matemáticas', 'Español', 'Inglés',
+    'Artes', 'Educación Física', 'Tecnología'
   ]
-
 
   const [saving, setSaving] = useState(false)
   const [editingGroup, setEditingGroup] = useState<string | null>(null)
@@ -61,21 +59,21 @@ export default function TeacherGroups() {
   useEffect(() => { loadGroups() }, [profile])
 
   const handleOpenCreate = () => {
-  setEditingGroup(null)
-  setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
-  setShowModal(true)
+    setEditingGroup(null)
+    setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+    setShowModal(true)
   }  
 
   const handleOpenEdit = (group: GroupWithCount) => {
-  setEditingGroup(group.id)
-  setForm({
-    name: group.name,
-    description: group.description ?? '',
-    grado: group.grado ?? '',
-    materias: group.materias ?? [],
-    school_year: group.school_year ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
-  })
-  setShowModal(true)
+    setEditingGroup(group.id)
+    setForm({
+      name: group.name,
+      description: group.description ?? '',
+      grado: group.grado ?? '',
+      materias: group.materias ?? [],
+      school_year: group.school_year ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
+    })
+    setShowModal(true)
   }
 
   const handleSave = async () => {
@@ -83,18 +81,17 @@ export default function TeacherGroups() {
     setSaving(true)
 
     if (editingGroup) {
-      // UPDATE
       await supabase
         .from('groups')
         .update({
           name: form.name,
           description: form.description || null,
           grado: form.grado || null,
+          materias: form.materias,
           school_year: form.school_year,
         })
         .eq('id', editingGroup)
     } else {
-      // INSERT
       await supabase.from('groups').insert({ ...form, teacher_id: profile.id })
     }
 
@@ -118,7 +115,7 @@ export default function TeacherGroups() {
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
-const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.filter(g => !g.archived)
+  const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.filter(g => !g.archived)
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -129,7 +126,7 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
             <p className="font-body text-ink-600 mt-1">Administra tus grupos de estudiantes</p>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={handleOpenCreate}
             className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors shadow-manuscript"
           >
             <Plus className="w-4 h-4" />
@@ -152,14 +149,6 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
             Archivados ({groups.filter(g => g.archived).length})
           </button>
         </div>
-      </div>
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors shadow-manuscript"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo grupo
-        </button>
       </div>
 
       {loading ? (
@@ -189,11 +178,11 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
                 <div className="flex-1">
                   <h3 className="font-display text-lg font-semibold text-ink-800">{group.name}</h3>
                   <div className="text-sm text-ink-500 font-body space-y-0.5">
-  		    {group.grado && <p>{group.grado} · {group.school_year}</p>}
-  		    {group.materias && group.materias.length > 0 && (
-		      <p className="text-xs text-gold-600">📚 {group.materias.join(', ')}</p>
-  		    )}
-		  </div>
+                    {group.grado && <p>{group.grado} · {group.school_year}</p>}
+                    {group.materias && group.materias.length > 0 && (
+                      <p className="text-xs text-gold-600">📚 {group.materias.join(', ')}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -203,13 +192,13 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
-                 <button 
-                  onClick={() => handleArchive(group.id, group.archived)} 
-                  className="text-ink-300 hover:text-gold-500 transition-colors p-1"
-                  title={group.archived ? 'Desarchivar' : 'Archivar'}
-                >
-                  {group.archived ? '📂' : '📁'}
-                </button>
+                  <button 
+                    onClick={() => handleArchive(group.id, group.archived)} 
+                    className="text-ink-300 hover:text-gold-500 transition-colors p-1"
+                    title={group.archived ? 'Desarchivar' : 'Archivar'}
+                  >
+                    {group.archived ? '📂' : '📁'}
+                  </button>
                 </div>
               </div>
 
@@ -255,10 +244,10 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="ej. Historia 2° A"
-                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green focus:ring-1 focus:ring-tesla-green/30"
+                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400/30"
                 />
               </div>
-               <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Grado</label>
                   <select 
@@ -272,14 +261,14 @@ const filteredGroups = showArchived ? groups.filter(g => g.archived) : groups.fi
                 </div>
                 <div>
                   <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Ciclo escolar</label>
-                  <input value={form.school_year} onChange={e => setForm(f => ({ ...f, school_year: e.target.value }))} placeholder="2025-2026" className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green" />
+                  <input value={form.school_year} onChange={e => setForm(f => ({ ...f, school_year: e.target.value }))} placeholder="2025-2026" className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400" />
                 </div>
               </div>
               <div>
                 <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Descripción (opcional)</label>
-                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green resize-none" />
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400 resize-none" />
               </div>
-<div>
+              <div>
                 <label className="text-sm font-body font-medium text-ink-700 block mb-2">Materias (selecciona hasta 3)</label>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-parchment-200 rounded p-3 bg-white">
                   {MATERIAS.map(m => (
