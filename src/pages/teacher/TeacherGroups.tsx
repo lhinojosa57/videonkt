@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
-import * as SupabaseTypes from '../../lib/supabase'
-import { Plus, Users, Copy, Check, Trash2, X } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import type { Group } from '../../lib/supabase'
+import { Plus, Users, Copy, Check, Trash2, X, Edit2 } from 'lucide-react'
 
-const supabase = SupabaseTypes.supabase
-const MATERIAS = SupabaseTypes.MATERIAS
-type Group = SupabaseTypes.Group
-type Materia = SupabaseTypes.Materia
-
-interface GroupWithCount extends Group { 
-  student_count: number 
-}
+interface GroupWithCount extends Group { student_count: number }
 
 export default function TeacherGroups() {
   const { profile } = useAuth()
@@ -18,14 +12,9 @@ export default function TeacherGroups() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
-  const [form, setForm] = useState({ 
-    name: '', 
-    description: '', 
-    materia: '' as Materia | '', 
-    grade: '', 
-    school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) 
-  })
+  const [form, setForm] = useState({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
   const [saving, setSaving] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<string | null>(null)
 
   async function loadGroups() {
     if (!profile) return
@@ -34,39 +23,58 @@ export default function TeacherGroups() {
       .select('*, group_members(count)')
       .eq('teacher_id', profile.id)
       .order('created_at', { ascending: false })
-    setGroups((data ?? []).map((g: any) => ({ 
-      ...g, 
-      student_count: g.group_members?.[0]?.count ?? 0 
-    })))
+    setGroups((data ?? []).map((g: any) => ({ ...g, student_count: g.group_members?.[0]?.count ?? 0 })))
     setLoading(false)
   }
 
-  useEffect(() => { 
-    loadGroups() 
-  }, [profile])
+  useEffect(() => { loadGroups() }, [profile])
 
-  const handleCreate = async () => {
-    if (!profile || !form.name.trim() || !form.materia) return
-    setSaving(true)
-    await supabase.from('groups').insert({ 
-      ...form, 
-      teacher_id: profile.id, 
-      subject: form.materia 
+  const handleOpenCreate = () => {
+    setEditingGroup(null)
+    setForm({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+    setShowModal(true)
+  }
+
+  const handleOpenEdit = (group: GroupWithCount) => {
+    setEditingGroup(group.id)
+    setForm({
+      name: group.name,
+      description: group.description ?? '',
+      grade: group.grade ?? '',
+      school_year: group.school_year ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
     })
+    setShowModal(true)
+  }
+
+  const handleSave = async () => {
+    if (!profile || !form.name.trim()) return
+    setSaving(true)
+
+    if (editingGroup) {
+      // UPDATE
+      await supabase
+        .from('groups')
+        .update({
+          name: form.name,
+          description: form.description || null,
+          grade: form.grade || null,
+          school_year: form.school_year,
+        })
+        .eq('id', editingGroup)
+    } else {
+      // INSERT
+      await supabase.from('groups').insert({ ...form, teacher_id: profile.id, subject: 'Historia' })
+    }
+
     setSaving(false)
     setShowModal(false)
-    setForm({ 
-      name: '', 
-      description: '', 
-      materia: '', 
-      grade: '', 
-      school_year: form.school_year 
-    })
+    setForm({ name: '', description: '', grade: '', school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+    setEditingGroup(null)
     loadGroups()
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar este grupo?')) return
+    if (!confirm('¿Eliminar este grupo? Se borrarán todas sus actividades.')) return
     await supabase.from('groups').delete().eq('id', id)
     loadGroups()
   }
@@ -82,10 +90,10 @@ export default function TeacherGroups() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-display text-3xl font-bold text-ink-900">Grupos</h1>
-          <p className="font-body text-ink-600 mt-1">Administra tus grupos</p>
+          <p className="font-body text-ink-600 mt-1">Administra tus grupos de estudiantes</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={handleOpenCreate}
           className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors shadow-manuscript"
         >
           <Plus className="w-4 h-4" />
@@ -95,37 +103,43 @@ export default function TeacherGroups() {
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-40 bg-parchment-200 rounded-sm animate-pulse" />
-          ))}
+          {[...Array(3)].map((_, i) => <div key={i} className="h-40 bg-parchment-200 rounded-sm animate-pulse" />)}
         </div>
       ) : groups.length === 0 ? (
         <div className="text-center py-20 bg-parchment-50 rounded-sm border border-parchment-200 shadow-manuscript">
           <Users className="w-16 h-16 mx-auto mb-4 text-parchment-300" />
           <p className="font-display text-xl text-ink-700 mb-2">Sin grupos todavía</p>
-          <button 
-            onClick={() => setShowModal(true)} 
-            className="bg-crimson-500 text-parchment-50 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600"
-          >
+          <p className="font-body text-ink-500 mb-6">Crea tu primer grupo para comenzar a asignar actividades</p>
+          <button onClick={handleOpenCreate} className="bg-crimson-500 text-parchment-50 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
             Crear grupo
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {groups.map(group => (
-            <div key={group.id} className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-5">
+            <div key={group.id} className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-5 hover:shadow-raised transition-shadow">
               <div className="flex items-start justify-between mb-3">
-                <div>
+                <div className="flex-1">
                   <h3 className="font-display text-lg font-semibold text-ink-800">{group.name}</h3>
-                  <p className="text-sm text-ink-500 font-body">{group.materia}</p>
+                  {group.grade && <p className="text-sm text-ink-500 font-body">{group.grade} · {group.school_year}</p>}
                 </div>
-                <button 
-                  onClick={() => handleDelete(group.id)} 
-                  className="text-ink-300 hover:text-crimson-500 p-1"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleOpenEdit(group)}
+                    className="text-ink-400 hover:text-gold-500 transition-colors p-1.5"
+                    title="Editar grupo"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDelete(group.id)} className="text-ink-300 hover:text-crimson-500 transition-colors p-1.5" title="Eliminar grupo">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
+              {group.description && (
+                <p className="text-sm text-ink-600 font-body mb-3 line-clamp-2">{group.description}</p>
+              )}
 
               <div className="flex items-center gap-4 text-sm text-ink-500 mb-4">
                 <span className="flex items-center gap-1.5">
@@ -136,18 +150,11 @@ export default function TeacherGroups() {
 
               <div className="bg-sepia-100 rounded px-3 py-2 flex items-center justify-between border border-parchment-200">
                 <div>
-                  <p className="text-xs text-ink-400 font-mono uppercase">Código</p>
-                  <p className="font-mono font-bold text-ink-800 text-lg">{group.invite_code}</p>
+                  <p className="text-xs text-ink-400 font-mono uppercase">Código de acceso</p>
+                  <p className="font-mono font-bold text-ink-800 tracking-widest text-lg">{group.invite_code}</p>
                 </div>
-                <button 
-                  onClick={() => copyCode(group.invite_code)} 
-                  className="text-ink-400 hover:text-gold-500 p-1.5"
-                >
-                  {copiedCode === group.invite_code ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
+                <button onClick={() => copyCode(group.invite_code)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5">
+                  {copiedCode === group.invite_code ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -155,57 +162,45 @@ export default function TeacherGroups() {
         </div>
       )}
 
+      {/* Modal Create/Edit */}
       {showModal && (
-        <div className="fixed inset-0 bg-ink-900/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-parchment-50 rounded-sm shadow-raised w-full max-w-md border border-parchment-200">
+        <div className="fixed inset-0 bg-ink-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-parchment-50 rounded-sm shadow-raised w-full max-w-md animate-slide-up border border-parchment-200">
             <div className="flex items-center justify-between p-6 border-b border-parchment-200">
-              <h2 className="font-display text-xl font-semibold text-ink-800">Nuevo grupo</h2>
-              <button onClick={() => setShowModal(false)} className="text-ink-400 hover:text-ink-700 p-1">
-                <X className="w-5 h-5" />
-              </button>
+              <h2 className="font-display text-xl font-semibold text-ink-800">
+                {editingGroup ? 'Editar grupo' : 'Nuevo grupo'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-ink-400 hover:text-ink-700 p-1"><X className="w-5 h-5" /></button>
             </div>
-            
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">
-                  Nombre del grupo *
-                </label>
+                <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Nombre del grupo *</label>
                 <input
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="ej. Matemáticas 2° A"
-                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green"
+                  placeholder="ej. Historia 2° A"
+                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green focus:ring-1 focus:ring-tesla-green/30"
                 />
               </div>
-              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Grado</label>
+                  <input value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} placeholder="ej. 2° Secundaria" className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green" />
+                </div>
+                <div>
+                  <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Ciclo escolar</label>
+                  <input value={form.school_year} onChange={e => setForm(f => ({ ...f, school_year: e.target.value }))} placeholder="2025-2026" className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green" />
+                </div>
+              </div>
               <div>
-                <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">
-                  Materia *
-                </label>
-                <select 
-                  value={form.materia} 
-                  onChange={e => setForm(f => ({ ...f, materia: e.target.value as Materia }))}
-                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green"
-                >
-                  <option value="">Seleccionar materia...</option>
-                  {MATERIAS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <label className="text-sm font-body font-medium text-ink-700 block mb-1.5">Descripción (opcional)</label>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green resize-none" />
               </div>
             </div>
-            
             <div className="flex gap-3 p-6 pt-0">
-              <button 
-                onClick={() => setShowModal(false)} 
-                className="flex-1 border border-parchment-300 text-ink-700 py-2.5 rounded-sm font-body hover:bg-sepia-100"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={handleCreate} 
-                disabled={!form.name.trim() || !form.materia || saving} 
-                className="flex-1 bg-crimson-500 text-parchment-50 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40"
-              >
-                {saving ? 'Creando...' : 'Crear grupo'}
+              <button onClick={() => setShowModal(false)} className="flex-1 border border-parchment-300 text-ink-700 py-2.5 rounded-sm font-body hover:bg-sepia-100 transition-colors">Cancelar</button>
+              <button onClick={handleSave} disabled={!form.name.trim() || saving} className="flex-1 bg-crimson-500 text-parchment-50 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors">
+                {saving ? 'Guardando...' : editingGroup ? 'Guardar cambios' : 'Crear grupo'}
               </button>
             </div>
           </div>
