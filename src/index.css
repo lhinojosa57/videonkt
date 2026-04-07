@@ -5,11 +5,13 @@
 :root {
   --color-ink: #1a1208;
   --color-parchment: #fdf8f0;
-  --color-sepia: #f4e9d4;
-  --color-gold: #d4af37;
-  --color-crimson: #9b1c1c;
+  --color-sepia: #f4f4f5;
+  --color-gold: #3fad6a;
+  --color-crimson: #2d7a4b;
+  --color-tesla-green: #3fad6a;
+  --color-tesla-dark: #2d7a4b;
+  --color-tesla-gray: #6b7280;
 }
-
 * {
   box-sizing: border-box;
 }

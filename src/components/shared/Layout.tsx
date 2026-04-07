@@ -26,13 +26,14 @@ export default function Layout() {
     <div className="min-h-screen bg-sepia-100 flex">
       <aside className="w-60 bg-ink-900 flex flex-col shadow-raised flex-shrink-0">
         <div className="p-5 border-b border-ink-700">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-crimson-500 rounded flex items-center justify-center">
-              <BookOpen className="w-4 h-4 text-parchment-50" />
+          <div className="flex items-center gap-3">
+            <img src="/logo-nikola-tesla.png" alt="Colegio Nikola Tesla" className="w-10 h-10 object-contain" />
+            <div>
+              <span className="font-display text-lg font-bold text-parchment-100 block leading-tight">VideoNKT</span>
+              <span className="text-[10px] text-ink-400 uppercase tracking-wider font-mono">Colegio Nikola Tesla</span>
             </div>
-            <span className="font-display text-xl font-bold text-parchment-100">VideoNKT</span>
           </div>
-          <p className="text-ink-500 text-xs font-mono mt-1 ml-0.5 uppercase tracking-wider">
+          <p className="text-ink-500 text-xs font-mono mt-2 ml-0.5 uppercase tracking-wider">
             {isTeacher ? 'Panel Docente' : 'Panel Estudiante'}
           </p>
         </div>
