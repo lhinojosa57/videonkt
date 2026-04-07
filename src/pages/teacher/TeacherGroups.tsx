@@ -76,7 +76,7 @@ export default function TeacherGroups() {
     setShowModal(true)
   }
 
-const handleSave = async () => {
+ const handleSave = async () => {
     if (!profile || !form.name.trim()) return
     setSaving(true)
 
@@ -117,11 +117,16 @@ const handleSave = async () => {
         }
       }
 
-    setSaving(false)
-    setShowModal(false)
-    setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
-    setEditingGroup(null)
-    loadGroups()
+      setSaving(false)
+      setShowModal(false)
+      setForm({ name: '', description: '', grado: '', materias: [], school_year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1) })
+      setEditingGroup(null)
+      loadGroups()
+    } catch (err) {
+      console.error('Error inesperado:', err)
+      alert('Error inesperado. Ver consola.')
+      setSaving(false)
+    }
   }
 
   const handleArchive = async (id: string, currentArchived: boolean) => {
