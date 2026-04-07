@@ -332,7 +332,7 @@ export default function CreateAssignment() {
       <style>{`
         .label-style { display: block; font-size: 0.875rem; font-weight: 500; color: #3d2c14; margin-bottom: 0.375rem; font-family: 'Source Serif 4', serif; }
         .input-style { border: 1px solid #e8d3a9; border-radius: 0.25rem; padding: 0.5rem 0.75rem; font-family: 'Source Serif 4', serif; color: #2d1f0e; background: white; transition: border-color 0.15s; }
-        .input-style:focus { outline: none; border-color: #d4af37; box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
+        .input-style:focus { outline: none; border-color: #3fad6a; box-shadow: 0 0 0 3px rgba(63,173,106,0.15); }
         select.input-style { cursor: pointer; }
       `}</style>
     </div>

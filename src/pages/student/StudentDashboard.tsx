@@ -130,7 +130,7 @@ const handleJoinGroup = async () => {
         </div>
         <button
           onClick={() => setShowJoin(true)}
-          className="flex items-center gap-2 bg-gold-400 text-ink-900 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors shadow-manuscript"
+          className="flex items-center gap-2 bg-tesla-green text-ink-900 px-4 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors shadow-manuscript"
         >
           <Plus className="w-4 h-4" />
           Unirse a grupo
@@ -154,7 +154,7 @@ const handleJoinGroup = async () => {
           </p>
           <button
             onClick={() => setShowJoin(true)}
-            className="bg-gold-400 text-ink-900 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors"
+            className="bg-tesla-green text-ink-900 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors"
           >
             Ingresar código
           </button>
@@ -176,7 +176,7 @@ const handleJoinGroup = async () => {
                 <div className="flex items-start gap-4">
                   {/* Icon */}
                   <div className={`w-12 h-12 rounded flex items-center justify-center flex-shrink-0 ${
-                    isCompleted ? 'bg-green-700/10' : isInProgress ? 'bg-gold-400/20' : 'bg-crimson-500/10'
+                    isCompleted ? 'bg-green-700/10' : isInProgress ? 'bg-tesla-green/20' : 'bg-crimson-500/10'
                   }`}>
                     {isCompleted ? (
                       <CheckCircle className="w-6 h-6 text-green-700" />
@@ -234,7 +234,7 @@ const handleJoinGroup = async () => {
                 <div className="mt-3">
                   <span className={`text-xs font-mono px-2 py-0.5 rounded ${
                     isCompleted ? 'bg-green-700/10 text-green-700' :
-                    isInProgress ? 'bg-gold-400/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
+                    isInProgress ? 'bg-tesla-green/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
                   }`}>
                     {isCompleted ? '✓ Completada' : isInProgress ? '⏱ En progreso' : '▶ Sin iniciar'}
                   </span>
@@ -268,7 +268,7 @@ const handleJoinGroup = async () => {
                 onKeyDown={e => e.key === 'Enter' && handleJoinGroup()}
                 placeholder="XXXXXXXX"
                 maxLength={8}
-                className="w-full border border-parchment-300 rounded px-4 py-3 font-mono text-xl text-center tracking-[0.3em] text-ink-800 bg-white focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 uppercase"
+                className="w-full border border-parchment-300 rounded px-4 py-3 font-mono text-xl text-center tracking-[0.3em] text-ink-800 bg-white focus:outline-none focus:border-tesla-green focus:ring-2 focus:ring-tesla-green/20 uppercase"
               />
               {joinError && (
                 <p className="text-crimson-500 text-sm font-body mt-2">{joinError}</p>
@@ -284,7 +284,7 @@ const handleJoinGroup = async () => {
               <button
                 onClick={handleJoinGroup}
                 disabled={!joinCode.trim() || joining}
-                className="flex-1 bg-gold-400 text-ink-900 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 disabled:opacity-40 transition-colors"
+                className="flex-1 bg-tesla-green text-ink-900 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 disabled:opacity-40 transition-colors"
               >
                 {joining ? 'Buscando…' : 'Unirse'}
               </button>

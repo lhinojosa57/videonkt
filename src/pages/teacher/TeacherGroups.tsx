@@ -174,7 +174,7 @@ export default function TeacherGroups() {
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="ej. Matemáticas 2° A"
-                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400"
+                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green"
                 />
               </div>
               
@@ -185,7 +185,7 @@ export default function TeacherGroups() {
                 <select 
                   value={form.materia} 
                   onChange={e => setForm(f => ({ ...f, materia: e.target.value as Materia }))}
-                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400"
+                  className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-tesla-green"
                 >
                   <option value="">Seleccionar materia...</option>
                   {MATERIAS.map(m => <option key={m} value={m}>{m}</option>)}

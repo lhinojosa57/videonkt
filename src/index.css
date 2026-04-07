@@ -25,16 +25,17 @@ body {
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #f4e9d4; }
-::-webkit-scrollbar-thumb { background: #d4b87e; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #b8960c; }
+::-webkit-scrollbar-track { background: #f3f4f6; }
+::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #6b7280; }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #e8c07e;
-  border-top-color: #d4af37;
+  border: 3px solid #d1fae5;
+  border-top-color: #3fad6a;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
+
 @keyframes spin { to { transform: rotate(360deg); } }
