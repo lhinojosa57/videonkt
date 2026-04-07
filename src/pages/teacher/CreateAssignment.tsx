@@ -78,7 +78,7 @@ export default function CreateAssignment() {
   useEffect(() => {
     if (!profile?.id) return
     supabase.from('groups').select('id, name').eq('teacher_id', profile!.id).then(({ data }) => setGroups(data ?? []))
-    supabase.from('contenidos_nem').select('*').order('codigo').then(({ data }) => setContenidos(data ?? []))
+    supabase.from('nem_contenidos').select('*').order('codigo').then(({ data }) => setContenidos(data ?? []))
     if (isEdit) {
       supabase.from('video_assignments').select('*').eq('id', editId).single().then(({ data }) => {
         if (data) setForm({
@@ -105,7 +105,7 @@ export default function CreateAssignment() {
 
   useEffect(() => {
     if (form.nem_contenido_id) {
-      supabase.from('pdas').select('*').eq('contenido_id', form.nem_contenido_id).order('descripcion').then(({ data }) => setAprendizajes(data ?? []))
+      supabase.from('nem_aprendizajes').select('*').eq('contenido_id', form.nem_contenido_id).order('descripcion').then(({ data }) => setAprendizajes(data ?? []))
     } else {
       setAprendizajes([])
     }
