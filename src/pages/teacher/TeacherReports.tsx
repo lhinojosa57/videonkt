@@ -144,6 +144,64 @@ export default function TeacherReports() {
     setLoadingMatrix(false)
   }
 
+async function handleAllowRetry() {
+    if (!selectedSession?.session_id) return
+    
+    const confirmed = confirm(
+      `¿Permitir que ${selectedSession.student_name} vuelva a realizar esta actividad?\n\n` +
+      `Se borrará su sesión actual (${selectedSession.score}/100) y podrá iniciarla de nuevo.`
+    )
+    
+    if (!confirmed) return
+
+    // Borrar la sesión actual (esto también borrará las respuestas por CASCADE)
+    await supabase
+      .from('student_sessions')
+      .delete()
+      .eq('id', selectedSession.session_id)
+
+    // Recargar datos
+    setSelectedSession(null)
+    
+    // Recargar la tabla
+    if (!profile?.id) return
+    const { data: myAssignments } = await supabase
+      .from('video_assignments')
+      .select('id, title')
+      .eq('teacher_id', profile!.id)
+      .order('created_at', { ascending: false })
+
+    const assignmentIds = (myAssignments ?? []).map((a: any) => a.id)
+
+    if (assignmentIds.length === 0) return
+
+    const { data: sessions } = await supabase
+      .from('student_sessions')
+      .select(`
+        id, started_at, completed_at, duration_seconds, score, is_completed,
+        profile:profiles!student_id(full_name, email),
+        assignment:video_assignments!assignment_id(title, topic, group:groups(name))
+      `)
+      .in('assignment_id', assignmentIds)
+      .order('started_at', { ascending: false })
+
+    const mapped: ReportRow[] = (sessions ?? []).map((s: any) => ({
+      student_name: s.profile?.full_name ?? 'Desconocido',
+      student_email: s.profile?.email ?? '',
+      assignment_title: s.assignment?.title ?? '',
+      topic: s.assignment?.topic ?? '',
+      group_name: s.assignment?.group?.name ?? '',
+      started_at: s.started_at,
+      completed_at: s.completed_at,
+      duration_seconds: s.duration_seconds ?? 0,
+      score: Math.round(s.score ?? 0),
+      is_completed: s.is_completed,
+      session_id: s.id,
+    }))
+    setRows(mapped)
+    setFiltered(mapped)
+  }
+
   useEffect(() => {
     if (selectedAssignment === 'all') {
       setFiltered(rows)
@@ -496,9 +554,19 @@ export default function TeacherReports() {
                 <span className="font-display text-2xl font-bold text-ink-900">{selectedSession.score}</span>
                 <span className="font-mono text-ink-400">/100</span>
               </div>
-              <button onClick={() => setSelectedSession(null)} className="bg-ink-800 text-parchment-100 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-ink-900 transition-colors">
-                Cerrar
-              </button>
+              <div className="flex gap-3">
+                {selectedSession.is_completed && (
+                  <button
+                    onClick={handleAllowRetry}
+                    className="bg-gold-400 text-ink-900 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors"
+                  >
+                    Permitir reintento
+                  </button>
+                )}
+                <button onClick={() => setSelectedSession(null)} className="bg-ink-800 text-parchment-100 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-ink-900 transition-colors">
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
