@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
-import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check } from 'lucide-react'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -49,34 +49,40 @@ function newQuestion(order: number): QuestionForm {
   }
 }
 
+const normalize = (str: string) =>
+  str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
 export default function CreateAssignment() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const { id: editId } = useParams()
   const isEdit = !!editId
 
-  const [groups, setGroups] = useState<any[]>([])
   const [saving, setSaving] = useState(false)
   const [expandedQ, setExpandedQ] = useState<number | null>(0)
 
-  const [form, setForm] = useState({
-    group_id: '',
-    title: '',
-    nem_contenido_id: '',
-    nem_aprendizaje_id: '',
-    video_url: '',
-    due_date: '',
-    is_published: false,
-  })
-  const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
+  // ── Campos principales ─────────────────────────────────────────────────────
+  const [title, setTitle] = useState('')
+  const [videoUrl, setVideoUrl] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [isPublished, setIsPublished] = useState(false)
 
-  // NEM data
+  // ── NEM ────────────────────────────────────────────────────────────────────
   const [materias, setMaterias] = useState<string[]>([])
   const [selectedMateria, setSelectedMateria] = useState('')
   const [contenidos, setContenidos] = useState<any[]>([])
+  const [selectedContenido, setSelectedContenido] = useState<any | null>(null)
   const [aprendizajes, setAprendizajes] = useState<any[]>([])
+  const [selectedAprendizaje, setSelectedAprendizaje] = useState<any | null>(null)
   const [searchContenido, setSearchContenido] = useState('')
   const [searchAprendizaje, setSearchAprendizaje] = useState('')
+
+  // ── Grupos ─────────────────────────────────────────────────────────────────
+  const [groups, setGroups] = useState<any[]>([])
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+
+  // ── Preguntas ──────────────────────────────────────────────────────────────
+  const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -84,11 +90,13 @@ export default function CreateAssignment() {
 
     // Grupos del docente
     supabase.from('groups')
-      .select('id, name')
+      .select('id, name, grado')
       .eq('teacher_id', profile!.id)
+      .eq('archived', false)
+      .order('name')
       .then(({ data }) => setGroups(data ?? []))
 
-    // Materias únicas desde nem_contenidos
+    // Materias únicas
     supabase.from('nem_contenidos')
       .select('materia')
       .order('materia')
@@ -98,46 +106,72 @@ export default function CreateAssignment() {
       })
 
     if (isEdit) {
-      supabase.from('video_assignments').select('*').eq('id', editId).single().then(async ({ data }) => {
-        if (!data) return
-        setForm({
-          group_id: data.group_id,
-          title: data.title,
-          nem_contenido_id: data.nem_contenido_id ?? '',
-          nem_aprendizaje_id: data.nem_aprendizaje_id ?? '',
-          video_url: data.video_url,
-          due_date: data.due_date ? data.due_date.substring(0, 16) : '',
-          is_published: data.is_published,
-        })
-        // Pre-seleccionar materia si ya tiene contenido
-        if (data.nem_contenido_id) {
-          const { data: contenido } = await supabase
-            .from('nem_contenidos')
-            .select('materia')
-            .eq('id', data.nem_contenido_id)
-            .single()
-          if (contenido?.materia) setSelectedMateria(contenido.materia)
-        }
-      })
+      // Cargar actividad
+      supabase.from('video_assignments')
+        .select('*')
+        .eq('id', editId)
+        .single()
+        .then(async ({ data }) => {
+          if (!data) return
+          setTitle(data.title ?? '')
+          setVideoUrl(data.video_url ?? '')
+          setDueDate(data.due_date ? data.due_date.substring(0, 16) : '')
+          setIsPublished(data.is_published ?? false)
 
-      supabase.from('questions').select('*').eq('assignment_id', editId).order('order_index').then(({ data }) => {
-        if (data && data.length > 0) {
-          setQuestions(data.map((q: any) => ({
-            ...q,
-            correct_answer: q.correct_answer ?? '',
-            options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
-          })))
-        }
-      })
+          // Pre-cargar NEM
+          if (data.nem_contenido_id) {
+            const { data: contenido } = await supabase
+              .from('nem_contenidos')
+              .select('*')
+              .eq('id', data.nem_contenido_id)
+              .single()
+            if (contenido) {
+              setSelectedMateria(contenido.materia)
+              setSelectedContenido(contenido)
+            }
+          }
+          if (data.aprendizaje_id) {
+            const { data: aprendizaje } = await supabase
+              .from('nem_aprendizajes')
+              .select('*')
+              .eq('id', data.aprendizaje_id)
+              .single()
+            if (aprendizaje) setSelectedAprendizaje(aprendizaje)
+          }
+        })
+
+      // Cargar grupos asignados
+      supabase.from('assignment_groups')
+        .select('group_id')
+        .eq('assignment_id', editId)
+        .then(({ data }) => {
+          setSelectedGroupIds((data ?? []).map((r: any) => r.group_id))
+        })
+
+      // Cargar preguntas
+      supabase.from('questions')
+        .select('*')
+        .eq('assignment_id', editId)
+        .order('order_index')
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setQuestions(data.map((q: any) => ({
+              ...q,
+              correct_answer: q.correct_answer ?? '',
+              options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
+            })))
+          }
+        })
     }
   }, [profile?.id, isEdit, editId])
 
-  // ── Al cambiar materia: cargar contenidos filtrados ────────────────────────
+  // ── Al cambiar materia ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedMateria) {
       setContenidos([])
-      setForm(f => ({ ...f, nem_contenido_id: '', nem_aprendizaje_id: '' }))
+      setSelectedContenido(null)
       setAprendizajes([])
+      setSelectedAprendizaje(null)
       return
     }
     supabase.from('nem_contenidos')
@@ -145,73 +179,111 @@ export default function CreateAssignment() {
       .eq('materia', selectedMateria)
       .order('orden')
       .then(({ data }) => setContenidos(data ?? []))
-    setForm(f => ({ ...f, nem_contenido_id: '', nem_aprendizaje_id: '' }))
+    setSelectedContenido(null)
     setAprendizajes([])
+    setSelectedAprendizaje(null)
     setSearchContenido('')
     setSearchAprendizaje('')
   }, [selectedMateria])
 
-  // ── Al cambiar contenido: cargar aprendizajes ──────────────────────────────
+  // ── Al cambiar contenido ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!form.nem_contenido_id) {
+    if (!selectedContenido) {
       setAprendizajes([])
+      setSelectedAprendizaje(null)
       return
     }
     supabase.from('nem_aprendizajes')
       .select('*')
-      .eq('contenido_id', form.nem_contenido_id)
+      .eq('contenido_id', selectedContenido.id)
       .order('orden')
       .then(({ data }) => setAprendizajes(data ?? []))
-    setForm(f => ({ ...f, nem_aprendizaje_id: '' }))
+    setSelectedAprendizaje(null)
     setSearchAprendizaje('')
-  }, [form.nem_contenido_id])
+  }, [selectedContenido])
 
   // ── Guardar ────────────────────────────────────────────────────────────────
   const handleSave = async (publish = false) => {
-    if (!profile?.id || !form.group_id || !form.title || !form.video_url) {
-      alert('Completa: grupo, título y URL del video')
-      return
-    }
+    if (!profile?.id) { alert('No hay sesión activa'); return }
+    if (!title.trim()) { alert('El título es obligatorio'); return }
+    if (!videoUrl.trim()) { alert('La URL del video es obligatoria'); return }
+    if (selectedGroupIds.length === 0) { alert('Selecciona al menos un grupo'); return }
+
     setSaving(true)
+
     const payload = {
-      ...form,
       teacher_id: profile!.id,
-      is_published: publish || form.is_published,
-      due_date: form.due_date || null,
+      title: title.trim(),
+      topic: title.trim(), // mismo valor para compatibilidad
+      video_url: videoUrl.trim(),
+      due_date: dueDate || null,
+      is_published: publish || isPublished,
+      nem_contenido_id: selectedContenido?.id ?? null,
+      aprendizaje_id: selectedAprendizaje?.id ?? null,
+      campo_formativo_id: selectedContenido?.campo_formativo_id ?? null,
+      group_id: null, // legacy, ya no se usa
     }
+
     let assignmentId = editId
 
     if (isEdit) {
-      await supabase.from('video_assignments').update(payload).eq('id', editId)
+      const { error } = await supabase
+        .from('video_assignments')
+        .update(payload)
+        .eq('id', editId)
+      if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
       await supabase.from('questions').delete().eq('assignment_id', editId)
+      await supabase.from('assignment_groups').delete().eq('assignment_id', editId)
     } else {
-      const { data } = await supabase.from('video_assignments').insert(payload).select().single()
+      const { data, error } = await supabase
+        .from('video_assignments')
+        .insert(payload)
+        .select()
+        .single()
+      if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
       assignmentId = data?.id
     }
 
-    if (assignmentId) {
-      const qPayload = questions
-        .filter(q => q.question_text.trim())
-        .map((q, i) => ({
-          assignment_id: assignmentId,
-          timestamp_seconds: q.timestamp_seconds,
-          question_type: q.question_type,
-          question_text: q.question_text,
-          options: q.question_type === 'multiple_choice' ? q.options.filter(o => o.text.trim()) : null,
-          correct_answer: q.question_type === 'open' ? null : q.correct_answer,
-          points: q.points,
-          order_index: i,
-        }))
-      if (qPayload.length > 0) await supabase.from('questions').insert(qPayload)
+    if (!assignmentId) { alert('No se pudo obtener el ID de la actividad'); setSaving(false); return }
+
+    // Guardar grupos en assignment_groups
+    const groupRows = selectedGroupIds.map(gid => ({
+      assignment_id: assignmentId,
+      group_id: gid,
+    }))
+    const { error: groupError } = await supabase.from('assignment_groups').insert(groupRows)
+    if (groupError) { alert(`Error al asignar grupos: ${groupError.message}`); setSaving(false); return }
+
+    // Guardar preguntas
+    const qPayload = questions
+      .filter(q => q.question_text.trim())
+      .map((q, i) => ({
+        assignment_id: assignmentId,
+        timestamp_seconds: q.timestamp_seconds,
+        question_type: q.question_type,
+        question_text: q.question_text,
+        options: q.question_type === 'multiple_choice' ? q.options.filter(o => o.text.trim()) : null,
+        correct_answer: q.question_type === 'open' ? null : q.correct_answer,
+        points: q.points,
+        order_index: i,
+      }))
+    if (qPayload.length > 0) {
+      const { error: qError } = await supabase.from('questions').insert(qPayload)
+      if (qError) { alert(`Error al guardar preguntas: ${qError.message}`); setSaving(false); return }
     }
 
     setSaving(false)
     navigate('/teacher/assignments')
   }
 
+  const toggleGroup = (id: string) => {
+    setSelectedGroupIds(prev =>
+      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+    )
+  }
+
   const addQuestion = () => {
-    const newQ = newQuestion(questions.length)
-    setQuestions(prev => [...prev, newQ])
+    setQuestions(prev => [...prev, newQuestion(prev.length)])
     setExpandedQ(questions.length)
   }
 
@@ -230,8 +302,6 @@ export default function CreateAssignment() {
       : q
     ))
   }
-
-  const normalize = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
   const filteredContenidos = contenidos.filter(c => {
     const q = normalize(searchContenido)
@@ -271,8 +341,8 @@ export default function CreateAssignment() {
             <div>
               <label className="label-style">Título de la actividad *</label>
               <input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                value={title}
+                onChange={e => setTitle(e.target.value)}
                 placeholder="ej. La Revolución Mexicana – Causas y antecedentes"
                 className="input-style w-full"
               />
@@ -287,13 +357,11 @@ export default function CreateAssignment() {
                 className="input-style w-full"
               >
                 <option value="">Seleccionar materia…</option>
-                {materias.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
+                {materias.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
 
-            {/* Contenido NEM — aparece solo si hay materia */}
+            {/* Contenido NEM */}
             {selectedMateria && (
               <div>
                 <label className="label-style">Contenido NEM</label>
@@ -304,22 +372,36 @@ export default function CreateAssignment() {
                   placeholder="Buscar contenido…"
                   className="input-style w-full mb-2"
                 />
-                <select
-                  value={form.nem_contenido_id}
-                  onChange={e => setForm(f => ({ ...f, nem_contenido_id: e.target.value }))}
-                  className="input-style w-full"
-                  size={5}
-                >
-                  <option value="">Seleccionar contenido…</option>
-                  {filteredContenidos.map(c => (
-                    <option key={c.id} value={c.id}>[{c.codigo}] {c.nombre}</option>
+                {selectedContenido && (
+                  <div className="flex items-start gap-2 mb-2 p-2.5 bg-green-700/10 border border-green-700/20 rounded text-sm">
+                    <Check className="w-4 h-4 text-green-700 flex-shrink-0 mt-0.5" />
+                    <span className="font-body text-green-800">[{selectedContenido.codigo}] {selectedContenido.nombre}</span>
+                    <button onClick={() => setSelectedContenido(null)} className="ml-auto text-green-700 hover:text-crimson-500 flex-shrink-0 text-xs font-body">✕</button>
+                  </div>
+                )}
+                <div className="border border-parchment-200 rounded overflow-hidden max-h-52 overflow-y-auto bg-white">
+                  {filteredContenidos.length === 0 ? (
+                    <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
+                  ) : filteredContenidos.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedContenido(c)}
+                      className={`w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 transition-colors flex items-start gap-2 ${
+                        selectedContenido?.id === c.id
+                          ? 'bg-green-700/10 text-green-800'
+                          : 'hover:bg-sepia-100 text-ink-700'
+                      }`}
+                    >
+                      {selectedContenido?.id === c.id && <Check className="w-3.5 h-3.5 text-green-700 flex-shrink-0 mt-0.5" />}
+                      <span><span className="font-mono text-xs text-ink-400">[{c.codigo}]</span> {c.nombre}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 
-            {/* PDA — aparece solo si hay contenido */}
-            {form.nem_contenido_id && (
+            {/* PDA */}
+            {selectedContenido && (
               <div>
                 <label className="label-style">Proceso de Desarrollo de Aprendizaje (PDA)</label>
                 <input
@@ -329,17 +411,31 @@ export default function CreateAssignment() {
                   placeholder="Buscar PDA…"
                   className="input-style w-full mb-2"
                 />
-                <select
-                  value={form.nem_aprendizaje_id}
-                  onChange={e => setForm(f => ({ ...f, nem_aprendizaje_id: e.target.value }))}
-                  className="input-style w-full"
-                  size={3}
-                >
-                  <option value="">Seleccionar PDA…</option>
-                  {filteredAprendizajes.map(a => (
-                    <option key={a.id} value={a.id}>{a.descripcion}</option>
+                {selectedAprendizaje && (
+                  <div className="flex items-start gap-2 mb-2 p-2.5 bg-green-700/10 border border-green-700/20 rounded text-sm">
+                    <Check className="w-4 h-4 text-green-700 flex-shrink-0 mt-0.5" />
+                    <span className="font-body text-green-800">{selectedAprendizaje.descripcion}</span>
+                    <button onClick={() => setSelectedAprendizaje(null)} className="ml-auto text-green-700 hover:text-crimson-500 flex-shrink-0 text-xs font-body">✕</button>
+                  </div>
+                )}
+                <div className="border border-parchment-200 rounded overflow-hidden max-h-48 overflow-y-auto bg-white">
+                  {filteredAprendizajes.length === 0 ? (
+                    <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
+                  ) : filteredAprendizajes.map(a => (
+                    <button
+                      key={a.id}
+                      onClick={() => setSelectedAprendizaje(a)}
+                      className={`w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 transition-colors flex items-start gap-2 ${
+                        selectedAprendizaje?.id === a.id
+                          ? 'bg-green-700/10 text-green-800'
+                          : 'hover:bg-sepia-100 text-ink-700'
+                      }`}
+                    >
+                      {selectedAprendizaje?.id === a.id && <Check className="w-3.5 h-3.5 text-green-700 flex-shrink-0 mt-0.5" />}
+                      <span>{a.descripcion}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 
@@ -355,8 +451,8 @@ export default function CreateAssignment() {
           <div>
             <label className="label-style">URL del video *</label>
             <input
-              value={form.video_url}
-              onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))}
+              value={videoUrl}
+              onChange={e => setVideoUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=…"
               className="input-style w-full font-mono text-sm"
             />
@@ -379,7 +475,6 @@ export default function CreateAssignment() {
               Agregar pregunta
             </button>
           </div>
-
           <div className="space-y-3">
             {questions.map((q, idx) => (
               <QuestionEditor
@@ -394,7 +489,6 @@ export default function CreateAssignment() {
               />
             ))}
           </div>
-
           {questions.length === 0 && (
             <div className="text-center py-8 text-ink-400 border-2 border-dashed border-parchment-300 rounded">
               <p className="font-body text-sm">Sin preguntas. El video se reproducirá sin interrupciones.</p>
@@ -408,27 +502,58 @@ export default function CreateAssignment() {
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">4</span>
             Asignación
           </h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 md:col-span-1">
-              <label className="label-style">Grupo *</label>
-              <select
-                value={form.group_id}
-                onChange={e => setForm(f => ({ ...f, group_id: e.target.value }))}
-                className="input-style w-full"
-              >
-                <option value="">Seleccionar grupo…</option>
-                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              <label className="label-style">Fecha límite (opcional)</label>
-              <input
-                type="datetime-local"
-                value={form.due_date}
-                onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
-                className="input-style w-full"
-              />
-            </div>
+
+          {/* Selección múltiple de grupos */}
+          <div className="mb-4">
+            <label className="label-style">
+              Grupos * 
+              {selectedGroupIds.length > 0 && (
+                <span className="ml-2 text-xs font-mono text-green-700 font-normal">
+                  {selectedGroupIds.length} seleccionado{selectedGroupIds.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </label>
+            {groups.length === 0 ? (
+              <p className="text-sm text-ink-400 font-body">No tienes grupos activos. <a href="/teacher/groups" className="text-crimson-500 underline">Crea uno primero.</a></p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {groups.map(g => {
+                  const isSelected = selectedGroupIds.includes(g.id)
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => toggleGroup(g.id)}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded border text-left transition-all ${
+                        isSelected
+                          ? 'border-green-600 bg-green-700/10 text-green-800'
+                          : 'border-parchment-300 bg-white text-ink-700 hover:border-gold-400 hover:bg-sepia-100'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                        isSelected ? 'bg-green-600 border-green-600' : 'border-parchment-400'
+                      }`}>
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-body font-medium text-sm truncate">{g.name}</p>
+                        {g.grado && <p className="text-xs text-ink-400 truncate">{g.grado}</p>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Fecha límite */}
+          <div>
+            <label className="label-style">Fecha límite (opcional)</label>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+              className="input-style w-full"
+            />
           </div>
         </div>
 
@@ -437,11 +562,19 @@ export default function CreateAssignment() {
           <button onClick={() => navigate('/teacher/assignments')} className="px-5 py-2.5 border border-parchment-300 text-ink-700 rounded-sm font-body hover:bg-sepia-100 transition-colors">
             Cancelar
           </button>
-          <button onClick={() => handleSave(false)} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-ink-700 text-parchment-100 rounded-sm font-body font-medium hover:bg-ink-800 disabled:opacity-40 transition-colors shadow-manuscript">
+          <button
+            onClick={() => handleSave(false)}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-ink-700 text-parchment-100 rounded-sm font-body font-medium hover:bg-ink-800 disabled:opacity-40 transition-colors shadow-manuscript"
+          >
             <Save className="w-4 h-4" />
             {saving ? 'Guardando…' : 'Guardar borrador'}
           </button>
-          <button onClick={() => handleSave(true)} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-crimson-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors shadow-manuscript">
+          <button
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-crimson-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors shadow-manuscript"
+          >
             <Eye className="w-4 h-4" />
             {saving ? 'Guardando…' : 'Publicar'}
           </button>
@@ -519,13 +652,24 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
             </div>
             <div>
               <label className="label-style">Puntos</label>
-              <input type="number" min={1} max={100} value={q.points} onChange={e => onUpdate({ points: Number(e.target.value) })} className="input-style w-full font-mono text-sm" />
+              <input
+                type="number" min={1} max={100}
+                value={q.points}
+                onChange={e => onUpdate({ points: Number(e.target.value) })}
+                className="input-style w-full font-mono text-sm"
+              />
             </div>
           </div>
 
           <div>
             <label className="label-style">Pregunta</label>
-            <textarea value={q.question_text} onChange={e => onUpdate({ question_text: e.target.value })} rows={2} className="input-style w-full resize-none" placeholder="Escribe la pregunta…" />
+            <textarea
+              value={q.question_text}
+              onChange={e => onUpdate({ question_text: e.target.value })}
+              rows={2}
+              className="input-style w-full resize-none"
+              placeholder="Escribe la pregunta…"
+            />
           </div>
 
           {q.question_type === 'multiple_choice' && (
@@ -533,9 +677,20 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <label className="label-style">Opciones (marca la correcta)</label>
               {q.options.map(opt => (
                 <div key={opt.id} className="flex items-center gap-2">
-                  <input type="radio" name={`correct-${idx}`} checked={q.correct_answer === opt.id} onChange={() => onUpdate({ correct_answer: opt.id })} className="w-4 h-4 accent-gold-500 flex-shrink-0" />
+                  <input
+                    type="radio"
+                    name={`correct-${idx}`}
+                    checked={q.correct_answer === opt.id}
+                    onChange={() => onUpdate({ correct_answer: opt.id })}
+                    className="w-4 h-4 accent-gold-500 flex-shrink-0"
+                  />
                   <span className="font-mono text-xs text-ink-400 w-4">{opt.id.toUpperCase()})</span>
-                  <input value={opt.text} onChange={e => onUpdateOption(opt.id, e.target.value)} placeholder={`Opción ${opt.id.toUpperCase()}`} className="input-style flex-1 text-sm" />
+                  <input
+                    value={opt.text}
+                    onChange={e => onUpdateOption(opt.id, e.target.value)}
+                    placeholder={`Opción ${opt.id.toUpperCase()}`}
+                    className="input-style flex-1 text-sm"
+                  />
                 </div>
               ))}
             </div>
@@ -547,8 +702,16 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <div className="flex gap-3">
                 {['true', 'false'].map(val => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name={`tf-${idx}`} checked={q.correct_answer === val} onChange={() => onUpdate({ correct_answer: val })} className="w-4 h-4 accent-gold-500" />
-                    <span className="font-body text-sm text-ink-700">{val === 'true' ? '✓ Verdadero' : '✗ Falso'}</span>
+                    <input
+                      type="radio"
+                      name={`tf-${idx}`}
+                      checked={q.correct_answer === val}
+                      onChange={() => onUpdate({ correct_answer: val })}
+                      className="w-4 h-4 accent-gold-500"
+                    />
+                    <span className="font-body text-sm text-ink-700">
+                      {val === 'true' ? '✓ Verdadero' : '✗ Falso'}
+                    </span>
                   </label>
                 ))}
               </div>
