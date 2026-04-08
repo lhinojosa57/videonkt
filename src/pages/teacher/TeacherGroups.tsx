@@ -296,7 +296,7 @@ export default function TeacherGroups() {
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full border border-parchment-300 rounded px-3 py-2 font-body text-ink-800 bg-white focus:outline-none focus:border-gold-400 resize-none" />
               </div>
               <div>
-                <label className="text-sm font-body font-medium text-ink-700 block mb-2">Materias (selecciona hasta 3)</label>
+                <label className="text-sm font-body font-medium text-ink-700 block mb-2">Materias* (selecciona hasta 3)</label>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-parchment-200 rounded p-3 bg-white">
                   {MATERIAS.map(m => (
                     <label key={m} className="flex items-center gap-2 cursor-pointer hover:bg-sepia-100 p-1.5 rounded transition-colors">
@@ -323,7 +323,8 @@ export default function TeacherGroups() {
 
             <div className="flex gap-3 p-6 pt-0">
               <button onClick={() => setShowModal(false)} className="flex-1 border border-parchment-300 text-ink-700 py-2.5 rounded-sm font-body hover:bg-sepia-100 transition-colors">Cancelar</button>
-              <button onClick={handleSave} disabled={!form.name.trim() || saving} className="flex-1 bg-crimson-500 text-parchment-50 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors">
+              <button onClick={handleSave} disabled={!form.name.trim() || form.materias.length === 0 || saving}
+		className="flex-1 bg-crimson-500 text-parchment-50 py-2.5 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors">
                 {saving ? 'Guardando...' : editingGroup ? 'Guardar cambios' : 'Crear grupo'}
               </button>
             </div>
