@@ -131,7 +131,7 @@ export default function WatchVideo() {
     setActivityState('paused_question')
 
     if (questionTimerRef.current) clearInterval(questionTimerRef.current)
-    const limit = q.question_type === 'open' ? 30 : 20
+    const limit = q.question_type === 'open' ? 60 : 20
     let elapsed = 0
     questionTimerRef.current = setInterval(() => {
       elapsed++
@@ -163,9 +163,7 @@ export default function WatchVideo() {
       for (const q of currentQuestions) {
         if (currentAnswered.has(q.id)) continue
         if (
-          videoSecondsRef.current >= q.timestamp_seconds &&
-          videoSecondsRef.current < q.timestamp_seconds + 1
-        ) {
+          videoSecondsRef.current >= q.timestamp_seconds) {
           clearInterval(videoTimerRef.current!)
           videoTimerRef.current = null
           triggerQuestion(q, videoUrl)
@@ -177,10 +175,12 @@ export default function WatchVideo() {
 
   // ── Start video ────────────────────────────────────────────────────────────
   const handleStartVideo = () => {
-    videoSecondsRef.current = 0
-    setVideoStarted(true)
+  videoSecondsRef.current = 0
+  setVideoStarted(true)
+  setTimeout(() => {
     startVideoTimer(questions, answeredQuestions, assignment?.video_url ?? '')
-  }
+  }, 3000)
+}
 
   // ── Submit answer ──────────────────────────────────────────────────────────
   const submitAnswer = async () => {
@@ -445,6 +445,7 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
               <textarea
                 value={currentAnswer}
                 onChange={e => onAnswer(e.target.value)}
+                onPaste={e => e.preventDefault()}
                 rows={4}
                 placeholder="Escribe tu respuesta aquí…"
                 className="w-full border border-parchment-300 rounded px-3 py-2.5 font-body text-sm text-ink-800 bg-white focus:outline-none focus:border-gold-400 focus:ring-2 focus:ring-gold-400/20 resize-none mb-4"
