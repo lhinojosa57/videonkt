@@ -16,12 +16,45 @@ export default function TeacherAssignments() {
 
   async function load() {
     if (!profile) return
-    const { data } = await supabase
+
+    // Traer actividades con preguntas y sesiones
+    const { data: rawAssignments } = await supabase
       .from('video_assignments')
-      .select('*, group:groups(name), questions(count), student_sessions(count)')
+      .select('*, questions(count), student_sessions(count)')
       .eq('teacher_id', profile.id)
       .order('created_at', { ascending: false })
-    setAssignments(data ?? [])
+
+    if (!rawAssignments || rawAssignments.length === 0) {
+      setAssignments([])
+      setLoading(false)
+      return
+    }
+
+    // Traer grupos desde assignment_groups para cada actividad
+    const assignmentIds = rawAssignments.map((a: any) => a.id)
+    const { data: agRows } = await supabase
+      .from('assignment_groups')
+      .select('assignment_id, group:groups(name)')
+      .in('assignment_id', assignmentIds)
+
+    // Agrupar nombres de grupos por assignment_id
+    const groupsByAssignment: Record<string, string[]> = {}
+    ;(agRows ?? []).forEach((row: any) => {
+      if (!groupsByAssignment[row.assignment_id]) {
+        groupsByAssignment[row.assignment_id] = []
+      }
+      if (row.group?.name) {
+        groupsByAssignment[row.assignment_id].push(row.group.name)
+      }
+    })
+
+    // Combinar
+    const enriched = rawAssignments.map((a: any) => ({
+      ...a,
+      groupNames: groupsByAssignment[a.id] ?? [],
+    }))
+
+    setAssignments(enriched)
     setLoading(false)
   }
 
@@ -73,7 +106,7 @@ export default function TeacherAssignments() {
             <thead>
               <tr className="border-b border-parchment-200 bg-sepia-100">
                 <th className="text-left px-5 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Actividad</th>
-                <th className="text-left px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Grupo</th>
+                <th className="text-left px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Grupos</th>
                 <th className="text-center px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Preguntas</th>
                 <th className="text-center px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Respuestas</th>
                 <th className="text-left px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500">Estado</th>
@@ -89,10 +122,17 @@ export default function TeacherAssignments() {
                     <p className="text-xs text-ink-400">{format(new Date(a.created_at), "d MMM yyyy", { locale: es })}</p>
                   </td>
                   <td className="px-4 py-4">
-                    <span className="flex items-center gap-1.5 text-sm text-ink-600 font-body">
-                      <Users className="w-3.5 h-3.5 text-ink-400" />
-                      {a.group?.name ?? '—'}
-                    </span>
+                    <div className="flex items-start gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-ink-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex flex-col gap-0.5">
+                        {a.groupNames.length > 0
+                          ? a.groupNames.map((name: string) => (
+                              <span key={name} className="text-sm text-ink-600 font-body leading-tight">{name}</span>
+                            ))
+                          : <span className="text-sm text-ink-400">—</span>
+                        }
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-4 text-center">
                     <span className="font-mono text-sm text-ink-700">{a.questions?.[0]?.count ?? 0}</span>
