@@ -166,6 +166,7 @@ export default function WatchVideo() {
           videoSecondsRef.current >= q.timestamp_seconds) {
           clearInterval(videoTimerRef.current!)
           videoTimerRef.current = null
+          console.log('🔔 disparando pregunta en segundo:', q.timestamp_seconds)
           triggerQuestion(q, videoUrl)
           break
         }
@@ -177,7 +178,9 @@ export default function WatchVideo() {
   const handleStartVideo = () => {
   videoSecondsRef.current = 0
   setVideoStarted(true)
+  console.log('▶ video iniciado, preguntas cargadas:', questions)
   setTimeout(() => {
+    console.log('⏳ arrancando timer con preguntas:', questions)
     startVideoTimer(questions, answeredQuestions, assignment?.video_url ?? '')
   }, 3000)
 }
