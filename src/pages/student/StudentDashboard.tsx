@@ -16,7 +16,7 @@ export default function StudentDashboard() {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
 
-async function loadAssignments() {
+  async function loadAssignments() {
     if (!profile) return
 
     // 1. Buscar grupos en los que está el estudiante
@@ -27,27 +27,35 @@ async function loadAssignments() {
 
     const groupIds = (memberships ?? []).map((m: any) => m.group_id)
 
-    console.log('📦 Grupos del estudiante:', groupIds)
-
     if (groupIds.length === 0) {
       setAssignments([])
       setLoading(false)
       return
     }
 
-    // 2. Buscar actividades de esos grupos
+    // 2. Buscar assignment_ids en assignment_groups (nueva arquitectura)
+    const { data: agRows } = await supabase
+      .from('assignment_groups')
+      .select('assignment_id')
+      .in('group_id', groupIds)
+
+    const assignmentIds = (agRows ?? []).map((r: any) => r.assignment_id)
+
+    if (assignmentIds.length === 0) {
+      setAssignments([])
+      setLoading(false)
+      return
+    }
+
+    // 3. Traer actividades publicadas
     const { data: assignmentsData } = await supabase
       .from('video_assignments')
-      .select(`
-        *,
-        group:groups(name)
-      `)
-      .in('group_id', groupIds)
+      .select('*')
+      .in('id', assignmentIds)
       .eq('is_published', true)
+      .order('created_at', { ascending: false })
 
-    console.log('📦 Actividades encontradas:', assignmentsData)
-
-    // 3. Para cada actividad, buscar la sesión del estudiante
+    // 4. Para cada actividad, buscar la sesión del estudiante
     const assignmentsWithSessions = await Promise.all(
       (assignmentsData ?? []).map(async (assignment: any) => {
         const { data: sessions } = await supabase
@@ -68,27 +76,21 @@ async function loadAssignments() {
     setAssignments(assignmentsWithSessions)
     setLoading(false)
   }
-  
+
   useEffect(() => {
     loadAssignments()
   }, [profile])
 
-
-const handleJoinGroup = async () => {
+  const handleJoinGroup = async () => {
     if (!joinCode.trim() || !profile) return
     setJoining(true)
     setJoinError('')
 
-    console.log('🔍 Buscando grupo con código:', joinCode.trim().toUpperCase())
-
-    // Buscar grupo por código
     const { data: group, error: searchError } = await supabase
       .from('groups')
       .select('id, name')
       .eq('invite_code', joinCode.trim().toUpperCase())
       .single()
-
-    console.log('📦 Resultado:', { group, searchError })
 
     if (searchError || !group) {
       setJoinError('Código inválido. Verifica con tu docente.')
@@ -96,7 +98,6 @@ const handleJoinGroup = async () => {
       return
     }
 
-    // Unirse al grupo
     const { error: insertError } = await supabase
       .from('group_members')
       .insert({ group_id: group.id, student_id: profile.id })
@@ -105,7 +106,6 @@ const handleJoinGroup = async () => {
       if (insertError.code === '23505') {
         setJoinError('Ya eres miembro de este grupo.')
       } else {
-        console.error('Error al unirse:', insertError)
         setJoinError('Error al unirse al grupo.')
       }
     } else {
@@ -145,7 +145,6 @@ const handleJoinGroup = async () => {
           ))}
         </div>
       ) : assignments.length === 0 ? (
-        /* Empty state */
         <div className="text-center py-20 bg-parchment-50 rounded-sm border border-parchment-200 shadow-manuscript">
           <BookOpen className="w-16 h-16 mx-auto mb-4 text-parchment-300" />
           <p className="font-display text-xl text-ink-700 mb-2">Sin actividades todavía</p>
@@ -160,7 +159,6 @@ const handleJoinGroup = async () => {
           </button>
         </div>
       ) : (
-        /* Assignment list */
         <div className="grid gap-4">
           {assignments.map((assignment: any) => {
             const session = getSession(assignment)
@@ -174,7 +172,6 @@ const handleJoinGroup = async () => {
                 onClick={() => navigate(`/student/watch/${assignment.id}`)}
               >
                 <div className="flex items-start gap-4">
-                  {/* Icon */}
                   <div className={`w-12 h-12 rounded flex items-center justify-center flex-shrink-0 ${
                     isCompleted ? 'bg-green-700/10' : isInProgress ? 'bg-tesla-green/20' : 'bg-crimson-500/10'
                   }`}>
@@ -187,7 +184,6 @@ const handleJoinGroup = async () => {
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div>
@@ -196,9 +192,6 @@ const handleJoinGroup = async () => {
                         </h3>
                         <p className="font-body text-sm text-ink-600 mt-0.5">
                           {assignment.topic}
-                        </p>
-                        <p className="text-xs text-ink-400 mt-1">
-                          {assignment.group?.name}
                         </p>
                       </div>
                       <div className="flex-shrink-0 text-right">
@@ -222,7 +215,6 @@ const handleJoinGroup = async () => {
                     </div>
                   </div>
 
-                  {/* Arrow */}
                   <div className="flex-shrink-0 self-center text-ink-300">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -230,7 +222,6 @@ const handleJoinGroup = async () => {
                   </div>
                 </div>
 
-                {/* Status badge */}
                 <div className="mt-3">
                   <span className={`text-xs font-mono px-2 py-0.5 rounded ${
                     isCompleted ? 'bg-green-700/10 text-green-700' :
