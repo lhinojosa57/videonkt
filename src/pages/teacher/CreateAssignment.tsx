@@ -70,18 +70,37 @@ export default function CreateAssignment() {
   })
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
 
+  // NEM data
+  const [materias, setMaterias] = useState<string[]>([])
+  const [selectedMateria, setSelectedMateria] = useState('')
   const [contenidos, setContenidos] = useState<any[]>([])
   const [aprendizajes, setAprendizajes] = useState<any[]>([])
   const [searchContenido, setSearchContenido] = useState('')
   const [searchAprendizaje, setSearchAprendizaje] = useState('')
 
+  // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!profile?.id) return
-    supabase.from('groups').select('id, name').eq('teacher_id', profile!.id).then(({ data }) => setGroups(data ?? []))
-    supabase.from('nem_contenidos').select('*').order('codigo').then(({ data }) => setContenidos(data ?? []))
+
+    // Grupos del docente
+    supabase.from('groups')
+      .select('id, name')
+      .eq('teacher_id', profile!.id)
+      .then(({ data }) => setGroups(data ?? []))
+
+    // Materias únicas desde nem_contenidos
+    supabase.from('nem_contenidos')
+      .select('materia')
+      .order('materia')
+      .then(({ data }) => {
+        const unique = [...new Set((data ?? []).map((r: any) => r.materia).filter(Boolean))] as string[]
+        setMaterias(unique)
+      })
+
     if (isEdit) {
-      supabase.from('video_assignments').select('*').eq('id', editId).single().then(({ data }) => {
-        if (data) setForm({
+      supabase.from('video_assignments').select('*').eq('id', editId).single().then(async ({ data }) => {
+        if (!data) return
+        setForm({
           group_id: data.group_id,
           title: data.title,
           nem_contenido_id: data.nem_contenido_id ?? '',
@@ -90,7 +109,17 @@ export default function CreateAssignment() {
           due_date: data.due_date ? data.due_date.substring(0, 16) : '',
           is_published: data.is_published,
         })
+        // Pre-seleccionar materia si ya tiene contenido
+        if (data.nem_contenido_id) {
+          const { data: contenido } = await supabase
+            .from('nem_contenidos')
+            .select('materia')
+            .eq('id', data.nem_contenido_id)
+            .single()
+          if (contenido?.materia) setSelectedMateria(contenido.materia)
+        }
       })
+
       supabase.from('questions').select('*').eq('assignment_id', editId).order('order_index').then(({ data }) => {
         if (data && data.length > 0) {
           setQuestions(data.map((q: any) => ({
@@ -103,21 +132,53 @@ export default function CreateAssignment() {
     }
   }, [profile?.id, isEdit, editId])
 
+  // ── Al cambiar materia: cargar contenidos filtrados ────────────────────────
   useEffect(() => {
-    if (form.nem_contenido_id) {
-      supabase.from('nem_aprendizajes').select('*').eq('contenido_id', form.nem_contenido_id).order('descripcion').then(({ data }) => setAprendizajes(data ?? []))
-    } else {
+    if (!selectedMateria) {
+      setContenidos([])
+      setForm(f => ({ ...f, nem_contenido_id: '', nem_aprendizaje_id: '' }))
       setAprendizajes([])
+      return
     }
+    supabase.from('nem_contenidos')
+      .select('*')
+      .eq('materia', selectedMateria)
+      .order('orden')
+      .then(({ data }) => setContenidos(data ?? []))
+    setForm(f => ({ ...f, nem_contenido_id: '', nem_aprendizaje_id: '' }))
+    setAprendizajes([])
+    setSearchContenido('')
+    setSearchAprendizaje('')
+  }, [selectedMateria])
+
+  // ── Al cambiar contenido: cargar aprendizajes ──────────────────────────────
+  useEffect(() => {
+    if (!form.nem_contenido_id) {
+      setAprendizajes([])
+      return
+    }
+    supabase.from('nem_aprendizajes')
+      .select('*')
+      .eq('contenido_id', form.nem_contenido_id)
+      .order('orden')
+      .then(({ data }) => setAprendizajes(data ?? []))
+    setForm(f => ({ ...f, nem_aprendizaje_id: '' }))
+    setSearchAprendizaje('')
   }, [form.nem_contenido_id])
 
+  // ── Guardar ────────────────────────────────────────────────────────────────
   const handleSave = async (publish = false) => {
     if (!profile?.id || !form.group_id || !form.title || !form.video_url) {
       alert('Completa: grupo, título y URL del video')
       return
     }
     setSaving(true)
-    const payload = { ...form, teacher_id: profile!.id, is_published: publish || form.is_published, due_date: form.due_date || null }
+    const payload = {
+      ...form,
+      teacher_id: profile!.id,
+      is_published: publish || form.is_published,
+      due_date: form.due_date || null,
+    }
     let assignmentId = editId
 
     if (isEdit) {
@@ -171,17 +232,17 @@ export default function CreateAssignment() {
   }
 
   const normalize = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  const searchNormContenido = normalize(searchContenido)
+
   const filteredContenidos = contenidos.filter(c => {
-    const codigo = normalize(c.codigo || '')
-    const nombre = normalize(c.nombre || '')
-    return codigo.includes(searchNormContenido) || nombre.includes(searchNormContenido)
+    const q = normalize(searchContenido)
+    if (!q) return true
+    return normalize(c.codigo || '').includes(q) || normalize(c.nombre || '').includes(q)
   })
 
-  const searchNormAprendizaje = normalize(searchAprendizaje)
   const filteredAprendizajes = aprendizajes.filter(a => {
-    const desc = normalize(a.descripcion || '')
-    return desc.includes(searchNormAprendizaje)
+    const q = normalize(searchAprendizaje)
+    if (!q) return true
+    return normalize(a.descripcion || '').includes(q)
   })
 
   return (
@@ -197,50 +258,67 @@ export default function CreateAssignment() {
       </div>
 
       <div className="space-y-6">
+
+        {/* ── Bloque 1: Información general ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
             Información general
           </h2>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 md:col-span-1">
-                <label className="label-style">Grupo *</label>
-                <select value={form.group_id} onChange={e => setForm(f => ({ ...f, group_id: e.target.value }))} className="input-style w-full">
-                  <option value="">Seleccionar grupo…</option>
-                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
-              <div className="col-span-2 md:col-span-1">
-                <label className="label-style">Fecha límite (opcional)</label>
-                <input type="datetime-local" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} className="input-style w-full" />
-              </div>
-            </div>
+
+            {/* Título */}
             <div>
               <label className="label-style">Título de la actividad *</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="ej. La Revolución Mexicana – Causas y antecedentes" className="input-style w-full" />
-            </div>
-            <div>
-              <label className="label-style">Contenido NEM</label>
               <input
-                type="text"
-                value={searchContenido}
-                onChange={e => setSearchContenido(e.target.value)}
-                placeholder="Buscar contenido NEM..."
-                className="input-style w-full mb-2"
-              />
-              <select
-                value={form.nem_contenido_id}
-                onChange={e => setForm(f => ({ ...f, nem_contenido_id: e.target.value, nem_aprendizaje_id: '' }))}
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="ej. La Revolución Mexicana – Causas y antecedentes"
                 className="input-style w-full"
-                size={5}
+              />
+            </div>
+
+            {/* Materia */}
+            <div>
+              <label className="label-style">Materia</label>
+              <select
+                value={selectedMateria}
+                onChange={e => setSelectedMateria(e.target.value)}
+                className="input-style w-full"
               >
-                <option value="">Seleccionar contenido…</option>
-                {filteredContenidos.map(c => (
-                  <option key={c.id} value={c.id}>[{c.codigo}] {c.nombre}</option>
+                <option value="">Seleccionar materia…</option>
+                {materias.map(m => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
+
+            {/* Contenido NEM — aparece solo si hay materia */}
+            {selectedMateria && (
+              <div>
+                <label className="label-style">Contenido NEM</label>
+                <input
+                  type="text"
+                  value={searchContenido}
+                  onChange={e => setSearchContenido(e.target.value)}
+                  placeholder="Buscar contenido…"
+                  className="input-style w-full mb-2"
+                />
+                <select
+                  value={form.nem_contenido_id}
+                  onChange={e => setForm(f => ({ ...f, nem_contenido_id: e.target.value }))}
+                  className="input-style w-full"
+                  size={5}
+                >
+                  <option value="">Seleccionar contenido…</option>
+                  {filteredContenidos.map(c => (
+                    <option key={c.id} value={c.id}>[{c.codigo}] {c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* PDA — aparece solo si hay contenido */}
             {form.nem_contenido_id && (
               <div>
                 <label className="label-style">Proceso de Desarrollo de Aprendizaje (PDA)</label>
@@ -248,7 +326,7 @@ export default function CreateAssignment() {
                   type="text"
                   value={searchAprendizaje}
                   onChange={e => setSearchAprendizaje(e.target.value)}
-                  placeholder="Buscar PDA..."
+                  placeholder="Buscar PDA…"
                   className="input-style w-full mb-2"
                 />
                 <select
@@ -264,9 +342,11 @@ export default function CreateAssignment() {
                 </select>
               </div>
             )}
+
           </div>
         </div>
 
+        {/* ── Bloque 2: Video ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">2</span>
@@ -274,11 +354,19 @@ export default function CreateAssignment() {
           </h2>
           <div>
             <label className="label-style">URL del video *</label>
-            <input value={form.video_url} onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))} placeholder="https://www.youtube.com/watch?v=… o https://vimeo.com/…" className="input-style w-full font-mono text-sm" />
-            <p className="text-xs text-ink-400 mt-1.5 font-body">Compatible con YouTube. Usa el formato: https://www.youtube.com/watch?v=ID del video. El video debe estar aprobado para tu organización.</p>
+            <input
+              value={form.video_url}
+              onChange={e => setForm(f => ({ ...f, video_url: e.target.value }))}
+              placeholder="https://www.youtube.com/watch?v=…"
+              className="input-style w-full font-mono text-sm"
+            />
+            <p className="text-xs text-ink-400 mt-1.5 font-body">
+              Compatible con YouTube. Usa el formato: https://www.youtube.com/watch?v=ID del video.
+            </p>
           </div>
         </div>
 
+        {/* ── Bloque 3: Preguntas interactivas ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg font-semibold text-ink-800 flex items-center gap-2">
@@ -314,6 +402,37 @@ export default function CreateAssignment() {
           )}
         </div>
 
+        {/* ── Bloque 4: Asignación ── */}
+        <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
+          <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
+            <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">4</span>
+            Asignación
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2 md:col-span-1">
+              <label className="label-style">Grupo *</label>
+              <select
+                value={form.group_id}
+                onChange={e => setForm(f => ({ ...f, group_id: e.target.value }))}
+                className="input-style w-full"
+              >
+                <option value="">Seleccionar grupo…</option>
+                {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2 md:col-span-1">
+              <label className="label-style">Fecha límite (opcional)</label>
+              <input
+                type="datetime-local"
+                value={form.due_date}
+                onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                className="input-style w-full"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Botones ── */}
         <div className="flex items-center justify-end gap-3 pb-8">
           <button onClick={() => navigate('/teacher/assignments')} className="px-5 py-2.5 border border-parchment-300 text-ink-700 rounded-sm font-body hover:bg-sepia-100 transition-colors">
             Cancelar
@@ -378,7 +497,11 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="label-style">Tipo</label>
-              <select value={q.question_type} onChange={e => onUpdate({ question_type: e.target.value as QuestionType, correct_answer: e.target.value === 'true_false' ? 'true' : 'a' })} className="input-style w-full text-sm">
+              <select
+                value={q.question_type}
+                onChange={e => onUpdate({ question_type: e.target.value as QuestionType, correct_answer: e.target.value === 'true_false' ? 'true' : 'a' })}
+                className="input-style w-full text-sm"
+              >
                 <option value="multiple_choice">Opción múltiple</option>
                 <option value="true_false">Verdadero / Falso</option>
                 <option value="open">Pregunta abierta</option>
