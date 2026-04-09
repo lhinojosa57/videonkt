@@ -1,7 +1,7 @@
 // import React from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { LogOut, Users, Home, Video, BarChart2 } from 'lucide-react'
+import { LogOut, Users, Home, Video, BarChart2, BookOpen } from 'lucide-react'
 
 export default function Layout() {
   const { profile, signOut } = useAuth()
@@ -12,6 +12,7 @@ export default function Layout() {
   { to: '/teacher', label: 'Inicio', icon: Home, end: true },
   { to: '/teacher/groups', label: 'Grupos', icon: Users },
   { to: '/teacher/assignments', label: 'Actividades', icon: Video },
+  { to: '/teacher/planning', label: 'Planeación', icon: BookOpen },
   { to: '/teacher/reports', label: 'Reportes', icon: BarChart2 },
 ]
 

@@ -10,6 +10,7 @@ import TeacherReports from './pages/teacher/TeacherReports'
 import StudentDashboard from './pages/student/StudentDashboard'
 import WatchVideo from './pages/student/WatchVideo'
 import Layout from './components/shared/Layout'
+import TeacherPlanning from './pages/teacher/TeacherPlanning'
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string }) {
   const { user, profile, loading } = useAuth()
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="assignments" element={<TeacherAssignments />} />
         <Route path="assignments/new" element={<CreateAssignment />} />
         <Route path="assignments/:id/edit" element={<CreateAssignment />} />
+        <Route path="planning" element={<TeacherPlanning />} />
         <Route path="reports" element={<TeacherReports />} />
       </Route>
 
