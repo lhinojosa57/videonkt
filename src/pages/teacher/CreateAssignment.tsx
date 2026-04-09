@@ -274,29 +274,7 @@ export default function CreateAssignment() {
     setAiError('')
 
     try {
-      // 1. Obtener transcripción via Edge Function
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const transcriptRes = await fetch(
-        'https://vioylqkituyzknwfpbhu.supabase.co/functions/v1/get-transcript',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${anonKey}`,
-          },
-          body: JSON.stringify({ url: videoUrl.trim() })
-        }
-      )
-      const transcriptData = await transcriptRes.json()
-
-      if (!transcriptRes.ok || !transcriptData.transcript) {
-        throw new Error(transcriptData.error || 'No se pudo obtener la transcripción del video. Verifica que tenga subtítulos activados.')
-      }
-
-      const transcript: string = transcriptData.transcript
-      const segments: { text: string; start: number }[] = transcriptData.segments ?? []
-
-      // 2. Construir contexto pedagógico
+      // Construir contexto pedagógico
       const contexto = [
         title && `Título de la actividad: ${title}`,
         materiaFinal && `Materia: ${materiaFinal}`,
@@ -306,78 +284,27 @@ export default function CreateAssignment() {
         selectedAprendizaje && `PDA: ${selectedAprendizaje.descripcion}`,
       ].filter(Boolean).join('\n')
 
-      // 3. Llamar a Claude API
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `Eres un experto en diseño de actividades de aprendizaje para educación secundaria en México (Nueva Escuela Mexicana).
+      // Una sola llamada a la Edge Function — hace transcripción + Claude internamente
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const res = await fetch(
+        'https://vioylqkituyzknwfpbhu.supabase.co/functions/v1/get-transcript',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${anonKey}`,
+          },
+          body: JSON.stringify({ url: videoUrl.trim(), contexto })
+        }
+      )
+      const data = await res.json()
 
-Contexto pedagógico:
-${contexto}
+      if (!res.ok || !data.preguntas?.length) {
+        throw new Error(data.error || 'No se pudieron generar preguntas. Verifica que el video tenga subtítulos activados.')
+      }
 
-Transcripción del video con timestamps (formato "inicio_segundos|texto"):
-${segments.length > 0
-  ? segments.map(s => `${s.start}|${s.text}`).join('\n')
-  : transcript.substring(0, 3000)
-}
-
-Genera exactamente 4 preguntas interactivas basadas en el contenido REAL del video. Las preguntas deben:
-- Estar ancladas a momentos específicos del video (usa los timestamps)
-- Verificar comprensión genuina, no memorización de datos triviales
-- Incluir 2 preguntas de opción múltiple, 1 verdadero/falso y 1 pregunta abierta
-- Estar redactadas en español claro para estudiantes de secundaria
-
-Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin markdown:
-{
-  "preguntas": [
-    {
-      "tipo": "multiple_choice",
-      "timestamp_segundos": 45,
-      "texto": "...",
-      "opciones": [
-        {"id": "a", "texto": "..."},
-        {"id": "b", "texto": "..."},
-        {"id": "c", "texto": "..."},
-        {"id": "d", "texto": "..."}
-      ],
-      "respuesta_correcta": "a",
-      "puntos": 10
-    },
-    {
-      "tipo": "true_false",
-      "timestamp_segundos": 120,
-      "texto": "...",
-      "respuesta_correcta": "true",
-      "puntos": 10
-    },
-    {
-      "tipo": "open",
-      "timestamp_segundos": 200,
-      "texto": "...",
-      "puntos": 20
-    }
-  ]
-}`
-          }]
-        })
-      })
-
-      if (!response.ok) throw new Error('Error al conectar con la IA')
-
-      const data = await response.json()
-      const raw = data.content?.[0]?.text ?? ''
-      const clean = raw.replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(clean)
-
-      if (!parsed.preguntas?.length) throw new Error('La IA no generó preguntas válidas')
-
-      // 4. Convertir al formato QuestionForm y agregar a las preguntas existentes
-      const nuevas: QuestionForm[] = parsed.preguntas.map((p: any, i: number) => ({
+      // Convertir al formato QuestionForm
+      const nuevas: QuestionForm[] = data.preguntas.map((p: any, i: number) => ({
         timestamp_seconds: Math.round(p.timestamp_segundos ?? 60),
         question_type: p.tipo as QuestionType,
         question_text: p.texto ?? '',
@@ -390,7 +317,7 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin markdown:
       }))
 
       setQuestions(prev => [...prev.filter(q => q.question_text.trim()), ...nuevas])
-      setExpandedQ(questions.filter(q => q.question_text.trim()).length) // abrir la primera nueva
+      setExpandedQ(questions.filter(q => q.question_text.trim()).length)
 
     } catch (err: any) {
       setAiError(err.message ?? 'Error desconocido')
