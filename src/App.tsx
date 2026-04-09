@@ -7,10 +7,13 @@ import TeacherGroups from './pages/teacher/TeacherGroups'
 import TeacherAssignments from './pages/teacher/TeacherAssignments'
 import CreateAssignment from './pages/teacher/CreateAssignment'
 import TeacherReports from './pages/teacher/TeacherReports'
+import AdminTeachers from './pages/teacher/AdminTeachers'
 import StudentDashboard from './pages/student/StudentDashboard'
 import WatchVideo from './pages/student/WatchVideo'
 import Layout from './components/shared/Layout'
 import TeacherPlanning from './pages/teacher/TeacherPlanning'
+
+const ADMIN_EMAIL = 'sistemas@nikolatesla.edu.mx'
 
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: string }) {
   const { user, profile, loading } = useAuth()
@@ -27,9 +30,27 @@ function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: 
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (!profile?.role) return <Navigate to="/login" replace />
+  if (!profile?.role) return <Navigate to="/setup-role" replace />
   if (role && profile.role !== role) {
     return <Navigate to={profile.role === 'teacher' ? '/teacher' : '/student'} replace />
+  }
+
+  return <>{children}</>
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, profile, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-sepia-100">
+        <div className="spinner mx-auto" />
+      </div>
+    )
+  }
+
+  if (!user || profile?.email !== ADMIN_EMAIL) {
+    return <Navigate to="/teacher" replace />
   }
 
   return <>{children}</>
@@ -54,7 +75,8 @@ export default function App() {
         ) : <LoginPage />
       } />
       <Route path="/auth/callback" element={<AuthCallback />} />
-      
+
+      {/* Teacher routes */}
       <Route path="/teacher" element={
         <ProtectedRoute role="teacher"><Layout /></ProtectedRoute>
       }>
@@ -63,10 +85,13 @@ export default function App() {
         <Route path="assignments" element={<TeacherAssignments />} />
         <Route path="assignments/new" element={<CreateAssignment />} />
         <Route path="assignments/:id/edit" element={<CreateAssignment />} />
-        <Route path="planning" element={<TeacherPlanning />} />
         <Route path="reports" element={<TeacherReports />} />
+        <Route path="admin/teachers" element={
+          <AdminRoute><AdminTeachers /></AdminRoute>
+        } />
       </Route>
 
+      {/* Student routes */}
       <Route path="/student" element={
         <ProtectedRoute role="student"><Layout /></ProtectedRoute>
       }>

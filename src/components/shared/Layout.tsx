@@ -1,20 +1,23 @@
 // import React from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { LogOut, Users, Home, Video, BarChart2, BookOpen } from 'lucide-react'
+import { LogOut, Users, Home, Video, BarChart2, BookOpen, ShieldCheck } from 'lucide-react'
+
+const ADMIN_EMAIL = 'sistemas@nikolatesla.edu.mx'
 
 export default function Layout() {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
   const isTeacher = profile?.role === 'teacher'
+  const isAdmin = profile?.email === ADMIN_EMAIL
 
   const teacherLinks = [
-  { to: '/teacher', label: 'Inicio', icon: Home, end: true },
-  { to: '/teacher/groups', label: 'Grupos', icon: Users },
-  { to: '/teacher/assignments', label: 'Actividades', icon: Video },
-  { to: '/teacher/planning', label: 'Planeación', icon: BookOpen },
-  { to: '/teacher/reports', label: 'Reportes', icon: BarChart2 },
-]
+    { to: '/teacher', label: 'Inicio', icon: Home, end: true },
+    { to: '/teacher/groups', label: 'Grupos', icon: Users },
+    { to: '/teacher/assignments', label: 'Actividades', icon: Video },
+    { to: '/teacher/planning', label: 'Planeación', icon: BookOpen },
+    { to: '/teacher/reports', label: 'Reportes', icon: BarChart2 },
+  ]
 
   const links = isTeacher ? teacherLinks : []
 
@@ -73,6 +76,28 @@ export default function Layout() {
               {label}
             </NavLink>
           ))}
+
+          {/* Sección admin — solo para sistemas@nikolatesla.edu.mx */}
+          {isAdmin && (
+            <>
+              <div className="pt-3 pb-1 px-3">
+                <p className="text-ink-500 text-xs font-mono uppercase tracking-wider">Administración</p>
+              </div>
+              <NavLink
+                to="/teacher/admin/teachers"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body transition-all ${
+                    isActive
+                      ? 'bg-gold-500/20 text-gold-300 font-medium border-l-2 border-gold-400'
+                      : 'text-parchment-300 hover:text-parchment-100 hover:bg-ink-800'
+                  }`
+                }
+              >
+                <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                Docentes
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <div className="p-3 border-t border-ink-700">
