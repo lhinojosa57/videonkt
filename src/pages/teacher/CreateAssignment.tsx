@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
-import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen } from 'lucide-react'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -67,46 +67,96 @@ export default function CreateAssignment() {
   const [dueDate, setDueDate] = useState('')
   const [isPublished, setIsPublished] = useState(false)
 
-  // ── NEM ────────────────────────────────────────────────────────────────────
-  const [materias, setMaterias] = useState<string[]>([])
-  const [selectedMateria, setSelectedMateria] = useState('')
-  const [contenidos, setContenidos] = useState<any[]>([])
-  const [selectedContenido, setSelectedContenido] = useState<any | null>(null)
-  const [aprendizajes, setAprendizajes] = useState<any[]>([])
-  const [selectedAprendizaje, setSelectedAprendizaje] = useState<any | null>(null)
-  const [searchContenido, setSearchContenido] = useState('')
-  const [searchAprendizaje, setSearchAprendizaje] = useState('')
-
   // ── Grupos ─────────────────────────────────────────────────────────────────
   const [groups, setGroups] = useState<any[]>([])
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
 
+  // ── Tema del libro ─────────────────────────────────────────────────────────
+  const [temasLibro, setTemasLibro] = useState<any[]>([])
+  const [selectedTema, setSelectedTema] = useState<any | null>(null)
+  const [searchTema, setSearchTema] = useState('')
+  const [loadingTemas, setLoadingTemas] = useState(false)
+
+  // ── NEM (solo lectura, jalados del tema) ───────────────────────────────────
+  const [selectedContenido, setSelectedContenido] = useState<any | null>(null)
+  const [selectedAprendizaje, setSelectedAprendizaje] = useState<any | null>(null)
+
   // ── Preguntas ──────────────────────────────────────────────────────────────
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
+
+  // ── Inferir materia y grado de los grupos seleccionados ────────────────────
+  const { inferredMateria, inferredGrado } = useMemo(() => {
+    const selected = groups.filter(g => selectedGroupIds.includes(g.id))
+    if (selected.length === 0) return { inferredMateria: null, inferredGrado: null }
+
+    // Recopilar todas las materias y grados únicos
+    const materias = new Set<string>()
+    const grados = new Set<string>()
+
+    selected.forEach(g => {
+      if (g.grado) grados.add(g.grado)
+      const mats = Array.isArray(g.materias) ? g.materias : []
+      mats.forEach((m: string) => materias.add(m))
+    })
+
+    // Solo inferir si todos los grupos comparten una sola materia y un solo grado
+    const inferredMateria = materias.size === 1 ? [...materias][0] : null
+    const inferredGrado = grados.size === 1 ? [...grados][0] : null
+
+    return { inferredMateria, inferredGrado }
+  }, [selectedGroupIds, groups])
+
+  // ── Cargar temas cuando cambia materia+grado ───────────────────────────────
+  useEffect(() => {
+    if (!inferredMateria || !inferredGrado) {
+      setTemasLibro([])
+      setSelectedTema(null)
+      setSelectedContenido(null)
+      setSelectedAprendizaje(null)
+      return
+    }
+
+    setLoadingTemas(true)
+    setSelectedTema(null)
+    setSelectedContenido(null)
+    setSelectedAprendizaje(null)
+    setSearchTema('')
+
+    supabase
+      .from('temas_libro')
+      .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
+      .eq('materia', inferredMateria)
+      .eq('grado', inferredGrado)
+      .order('orden')
+      .then(({ data }) => {
+        setTemasLibro(data ?? [])
+        setLoadingTemas(false)
+      })
+  }, [inferredMateria, inferredGrado])
+
+  // ── Al seleccionar tema, jalar NEM y PDA ───────────────────────────────────
+  useEffect(() => {
+    if (!selectedTema) {
+      setSelectedContenido(null)
+      setSelectedAprendizaje(null)
+      return
+    }
+    setSelectedContenido(selectedTema.contenido ?? null)
+    setSelectedAprendizaje(selectedTema.aprendizaje ?? null)
+  }, [selectedTema])
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!profile?.id) return
 
-    // Grupos del docente
     supabase.from('groups')
-      .select('id, name, grado')
+      .select('id, name, grado, materias')
       .eq('teacher_id', profile!.id)
       .eq('archived', false)
       .order('name')
       .then(({ data }) => setGroups(data ?? []))
 
-    // Materias únicas
-    supabase.from('nem_contenidos')
-      .select('materia')
-      .order('materia')
-      .then(({ data }) => {
-        const unique = [...new Set((data ?? []).map((r: any) => r.materia).filter(Boolean))] as string[]
-        setMaterias(unique)
-      })
-
     if (isEdit) {
-      // Cargar actividad
       supabase.from('video_assignments')
         .select('*')
         .eq('id', editId)
@@ -118,29 +168,22 @@ export default function CreateAssignment() {
           setDueDate(data.due_date ? data.due_date.substring(0, 16) : '')
           setIsPublished(data.is_published ?? false)
 
-          // Pre-cargar NEM
-          if (data.nem_contenido_id) {
+          // Pre-cargar tema
+          if (data.tema_libro_id) {
+            const { data: tema } = await supabase
+              .from('temas_libro')
+              .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
+              .eq('id', data.tema_libro_id)
+              .single()
+            if (tema) setSelectedTema(tema)
+          } else if (data.nem_contenido_id) {
+            // Compatibilidad con actividades antiguas
             const { data: contenido } = await supabase
-              .from('nem_contenidos')
-              .select('*')
-              .eq('id', data.nem_contenido_id)
-              .single()
-            if (contenido) {
-              setSelectedMateria(contenido.materia)
-              setSelectedContenido(contenido)
-            }
-          }
-          if (data.aprendizaje_id) {
-            const { data: aprendizaje } = await supabase
-              .from('nem_aprendizajes')
-              .select('*')
-              .eq('id', data.aprendizaje_id)
-              .single()
-            if (aprendizaje) setSelectedAprendizaje(aprendizaje)
+              .from('nem_contenidos').select('*').eq('id', data.nem_contenido_id).single()
+            if (contenido) setSelectedContenido(contenido)
           }
         })
 
-      // Cargar grupos asignados
       supabase.from('assignment_groups')
         .select('group_id')
         .eq('assignment_id', editId)
@@ -148,7 +191,6 @@ export default function CreateAssignment() {
           setSelectedGroupIds((data ?? []).map((r: any) => r.group_id))
         })
 
-      // Cargar preguntas
       supabase.from('questions')
         .select('*')
         .eq('assignment_id', editId)
@@ -165,43 +207,6 @@ export default function CreateAssignment() {
     }
   }, [profile?.id, isEdit, editId])
 
-  // ── Al cambiar materia ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!selectedMateria) {
-      setContenidos([])
-      setSelectedContenido(null)
-      setAprendizajes([])
-      setSelectedAprendizaje(null)
-      return
-    }
-    supabase.from('nem_contenidos')
-      .select('*')
-      .eq('materia', selectedMateria)
-      .order('orden')
-      .then(({ data }) => setContenidos(data ?? []))
-    setSelectedContenido(null)
-    setAprendizajes([])
-    setSelectedAprendizaje(null)
-    setSearchContenido('')
-    setSearchAprendizaje('')
-  }, [selectedMateria])
-
-  // ── Al cambiar contenido ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!selectedContenido) {
-      setAprendizajes([])
-      setSelectedAprendizaje(null)
-      return
-    }
-    supabase.from('nem_aprendizajes')
-      .select('*')
-      .eq('contenido_id', selectedContenido.id)
-      .order('orden')
-      .then(({ data }) => setAprendizajes(data ?? []))
-    setSelectedAprendizaje(null)
-    setSearchAprendizaje('')
-  }, [selectedContenido])
-
   // ── Guardar ────────────────────────────────────────────────────────────────
   const handleSave = async (publish = false) => {
     if (!profile?.id) { alert('No hay sesión activa'); return }
@@ -214,47 +219,36 @@ export default function CreateAssignment() {
     const payload = {
       teacher_id: profile!.id,
       title: title.trim(),
-      topic: title.trim(), // mismo valor para compatibilidad
+      topic: title.trim(),
       video_url: videoUrl.trim(),
       due_date: dueDate || null,
       is_published: publish || isPublished,
+      tema_libro_id: selectedTema?.id ?? null,
       nem_contenido_id: selectedContenido?.id ?? null,
       aprendizaje_id: selectedAprendizaje?.id ?? null,
       campo_formativo_id: selectedContenido?.campo_formativo_id ?? null,
-      group_id: null, // legacy, ya no se usa
+      group_id: null,
     }
 
     let assignmentId = editId
 
     if (isEdit) {
-      const { error } = await supabase
-        .from('video_assignments')
-        .update(payload)
-        .eq('id', editId)
+      const { error } = await supabase.from('video_assignments').update(payload).eq('id', editId)
       if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
       await supabase.from('questions').delete().eq('assignment_id', editId)
       await supabase.from('assignment_groups').delete().eq('assignment_id', editId)
     } else {
-      const { data, error } = await supabase
-        .from('video_assignments')
-        .insert(payload)
-        .select()
-        .single()
+      const { data, error } = await supabase.from('video_assignments').insert(payload).select().single()
       if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
       assignmentId = data?.id
     }
 
     if (!assignmentId) { alert('No se pudo obtener el ID de la actividad'); setSaving(false); return }
 
-    // Guardar grupos en assignment_groups
-    const groupRows = selectedGroupIds.map(gid => ({
-      assignment_id: assignmentId,
-      group_id: gid,
-    }))
+    const groupRows = selectedGroupIds.map(gid => ({ assignment_id: assignmentId, group_id: gid }))
     const { error: groupError } = await supabase.from('assignment_groups').insert(groupRows)
     if (groupError) { alert(`Error al asignar grupos: ${groupError.message}`); setSaving(false); return }
 
-    // Guardar preguntas
     const qPayload = questions
       .filter(q => q.question_text.trim())
       .map((q, i) => ({
@@ -303,17 +297,16 @@ export default function CreateAssignment() {
     ))
   }
 
-  const filteredContenidos = contenidos.filter(c => {
-    const q = normalize(searchContenido)
+  const filteredTemas = temasLibro.filter(t => {
+    const q = normalize(searchTema)
     if (!q) return true
-    return normalize(c.codigo || '').includes(q) || normalize(c.nombre || '').includes(q)
+    return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
   })
 
-  const filteredAprendizajes = aprendizajes.filter(a => {
-    const q = normalize(searchAprendizaje)
-    if (!q) return true
-    return normalize(a.descripcion || '').includes(q)
-  })
+  // Detectar si hay múltiples materias/grados en grupos seleccionados
+  const selectedGroups = groups.filter(g => selectedGroupIds.includes(g.id))
+  const hasMultipleMaterias = selectedGroups.length > 0 && !inferredMateria
+  const hasMultipleGrados = selectedGroups.length > 0 && !inferredGrado
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
@@ -329,123 +322,192 @@ export default function CreateAssignment() {
 
       <div className="space-y-6">
 
-        {/* ── Bloque 1: Información general ── */}
+        {/* ── Bloque 1: Asignación a grupos ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
-            Información general
+            Asignación
           </h2>
-          <div className="space-y-4">
 
+          <div className="space-y-4">
             {/* Título */}
             <div>
               <label className="label-style">Título de la actividad *</label>
               <input
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder="ej. La Revolución Mexicana – Causas y antecedentes"
+                placeholder="ej. Teorema de Pitágoras"
                 className="input-style w-full"
               />
             </div>
 
-            {/* Materia */}
+            {/* Selección de grupos */}
             <div>
-              <label className="label-style">Materia</label>
-              <select
-                value={selectedMateria}
-                onChange={e => setSelectedMateria(e.target.value)}
-                className="input-style w-full"
-              >
-                <option value="">Seleccionar materia…</option>
-                {materias.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
+              <label className="label-style">
+                Grupos *
+                {selectedGroupIds.length > 0 && (
+                  <span className="ml-2 text-xs font-mono text-green-700 font-normal">
+                    {selectedGroupIds.length} seleccionado{selectedGroupIds.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </label>
+              {groups.length === 0 ? (
+                <p className="text-sm text-ink-400 font-body">No tienes grupos activos. <a href="/teacher/groups" className="text-crimson-500 underline">Crea uno primero.</a></p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {groups.map(g => {
+                    const isSelected = selectedGroupIds.includes(g.id)
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => toggleGroup(g.id)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded border text-left transition-all ${
+                          isSelected
+                            ? 'border-green-600 bg-green-700/10 text-green-800'
+                            : 'border-parchment-300 bg-white text-ink-700 hover:border-gold-400 hover:bg-sepia-100'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                          isSelected ? 'bg-green-600 border-green-600' : 'border-parchment-400'
+                        }`}>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-body font-medium text-sm truncate">{g.name}</p>
+                          {g.grado && <p className="text-xs text-ink-400 truncate">{g.grado}</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Aviso si grupos de distintas materias/grados */}
+              {(hasMultipleMaterias || hasMultipleGrados) && (
+                <div className="mt-3 p-3 bg-gold-400/10 border border-gold-400/30 rounded text-sm font-body text-ink-600">
+                  ⚠️ Los grupos seleccionados tienen {hasMultipleMaterias ? 'distintas materias' : ''}{hasMultipleMaterias && hasMultipleGrados ? ' y ' : ''}{hasMultipleGrados ? 'distintos grados' : ''}. No se puede vincular un tema del libro automáticamente.
+                </div>
+              )}
+
+              {/* Materia y grado inferidos */}
+              {inferredMateria && inferredGrado && (
+                <div className="mt-3 flex items-center gap-2 text-sm font-body text-ink-600 bg-sepia-100 px-3 py-2 rounded border border-parchment-200">
+                  <BookOpen className="w-4 h-4 text-ink-400 flex-shrink-0" />
+                  <span>Materia detectada: <strong>{inferredMateria}</strong> · <strong>{inferredGrado}</strong></span>
+                </div>
+              )}
             </div>
 
-            {/* Contenido NEM */}
-            {selectedMateria && (
-              <div>
-                <label className="label-style">Contenido NEM</label>
-                <input
-                  type="text"
-                  value={searchContenido}
-                  onChange={e => setSearchContenido(e.target.value)}
-                  placeholder="Buscar contenido…"
-                  className="input-style w-full mb-2"
-                />
-                {selectedContenido && (
-                  <div className="flex items-start gap-2 mb-2 p-2.5 bg-green-700/10 border border-green-700/20 rounded text-sm">
-                    <Check className="w-4 h-4 text-green-700 flex-shrink-0 mt-0.5" />
-                    <span className="font-body text-green-800">[{selectedContenido.codigo}] {selectedContenido.nombre}</span>
-                    <button onClick={() => setSelectedContenido(null)} className="ml-auto text-green-700 hover:text-crimson-500 flex-shrink-0 text-xs font-body">✕</button>
-                  </div>
-                )}
-                <div className="border border-parchment-200 rounded overflow-hidden max-h-52 overflow-y-auto bg-white">
-                  {filteredContenidos.length === 0 ? (
-                    <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
-                  ) : filteredContenidos.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedContenido(c)}
-                      className={`w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 transition-colors flex items-start gap-2 ${
-                        selectedContenido?.id === c.id
-                          ? 'bg-green-700/10 text-green-800'
-                          : 'hover:bg-sepia-100 text-ink-700'
-                      }`}
-                    >
-                      {selectedContenido?.id === c.id && <Check className="w-3.5 h-3.5 text-green-700 flex-shrink-0 mt-0.5" />}
-                      <span><span className="font-mono text-xs text-ink-400">[{c.codigo}]</span> {c.nombre}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* PDA */}
-            {selectedContenido && (
-              <div>
-                <label className="label-style">Proceso de Desarrollo de Aprendizaje (PDA)</label>
-                <input
-                  type="text"
-                  value={searchAprendizaje}
-                  onChange={e => setSearchAprendizaje(e.target.value)}
-                  placeholder="Buscar PDA…"
-                  className="input-style w-full mb-2"
-                />
-                {selectedAprendizaje && (
-                  <div className="flex items-start gap-2 mb-2 p-2.5 bg-green-700/10 border border-green-700/20 rounded text-sm">
-                    <Check className="w-4 h-4 text-green-700 flex-shrink-0 mt-0.5" />
-                    <span className="font-body text-green-800">{selectedAprendizaje.descripcion}</span>
-                    <button onClick={() => setSelectedAprendizaje(null)} className="ml-auto text-green-700 hover:text-crimson-500 flex-shrink-0 text-xs font-body">✕</button>
-                  </div>
-                )}
-                <div className="border border-parchment-200 rounded overflow-hidden max-h-48 overflow-y-auto bg-white">
-                  {filteredAprendizajes.length === 0 ? (
-                    <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
-                  ) : filteredAprendizajes.map(a => (
-                    <button
-                      key={a.id}
-                      onClick={() => setSelectedAprendizaje(a)}
-                      className={`w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 transition-colors flex items-start gap-2 ${
-                        selectedAprendizaje?.id === a.id
-                          ? 'bg-green-700/10 text-green-800'
-                          : 'hover:bg-sepia-100 text-ink-700'
-                      }`}
-                    >
-                      {selectedAprendizaje?.id === a.id && <Check className="w-3.5 h-3.5 text-green-700 flex-shrink-0 mt-0.5" />}
-                      <span>{a.descripcion}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
+            {/* Fecha límite */}
+            <div>
+              <label className="label-style">Fecha límite (opcional)</label>
+              <input
+                type="datetime-local"
+                value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                className="input-style w-full"
+              />
+            </div>
           </div>
         </div>
 
-        {/* ── Bloque 2: Video ── */}
+        {/* ── Bloque 2: Tema del libro ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">2</span>
+            Tema del libro de texto
+            <span className="text-xs font-mono text-ink-400 font-normal">(opcional)</span>
+          </h2>
+
+          {!inferredMateria || !inferredGrado ? (
+            <p className="text-sm font-body text-ink-400">
+              Selecciona grupos con la misma materia y grado para ver los temas disponibles.
+            </p>
+          ) : loadingTemas ? (
+            <div className="flex items-center gap-2 text-sm text-ink-500 font-body">
+              <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+              Cargando temas de {inferredMateria} {inferredGrado}…
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Tema seleccionado */}
+              {selectedTema && (
+                <div className="p-3 bg-green-700/10 border border-green-700/20 rounded">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-body font-medium text-green-800">{selectedTema.tema_principal}</p>
+                      {selectedTema.subtema && (
+                        <p className="text-xs text-green-700 mt-0.5">{selectedTema.subtema}</p>
+                      )}
+                      <p className="text-xs text-ink-400 mt-1 font-mono">p. {selectedTema.pagina}</p>
+                    </div>
+                    <button onClick={() => { setSelectedTema(null); setSearchTema('') }} className="text-green-700 hover:text-crimson-500 text-xs font-body flex-shrink-0">✕</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Buscador */}
+              {!selectedTema && (
+                <>
+                  <input
+                    type="text"
+                    value={searchTema}
+                    onChange={e => setSearchTema(e.target.value)}
+                    placeholder={`Buscar tema de ${inferredMateria}…`}
+                    className="input-style w-full"
+                  />
+                  <div className="border border-parchment-200 rounded overflow-hidden max-h-56 overflow-y-auto bg-white">
+                    {filteredTemas.length === 0 ? (
+                      <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
+                    ) : filteredTemas.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTema(t)}
+                        className="w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 hover:bg-sepia-100 transition-colors"
+                      >
+                        <p className="text-ink-800 font-medium leading-tight">{t.tema_principal}</p>
+                        {t.subtema && <p className="text-ink-500 text-xs mt-0.5">{t.subtema}</p>}
+                        <p className="text-ink-300 text-xs font-mono mt-0.5">p. {t.pagina}</p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* NEM y PDA vinculados (solo lectura) */}
+              {selectedTema && (
+                <div className="space-y-2 mt-2">
+                  {selectedContenido ? (
+                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
+                      <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">Contenido NEM</p>
+                      <p className="font-body text-ink-700"><span className="font-mono text-xs text-ink-400">[{selectedContenido.codigo}]</span> {selectedContenido.nombre}</p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm text-ink-400 font-body">
+                      📚 Este tema aún no tiene contenido NEM vinculado.
+                    </div>
+                  )}
+
+                  {selectedAprendizaje ? (
+                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
+                      <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">PDA</p>
+                      <p className="font-body text-ink-700">{selectedAprendizaje.descripcion}</p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm text-ink-400 font-body">
+                      📋 Este tema aún no tiene PDA vinculado.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Bloque 3: Video ── */}
+        <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
+          <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
+            <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">3</span>
             Video
           </h2>
           <div>
@@ -462,11 +524,11 @@ export default function CreateAssignment() {
           </div>
         </div>
 
-        {/* ── Bloque 3: Preguntas interactivas ── */}
+        {/* ── Bloque 4: Preguntas interactivas ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg font-semibold text-ink-800 flex items-center gap-2">
-              <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">3</span>
+              <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">4</span>
               Preguntas interactivas
               <span className="font-mono text-sm text-ink-400 font-normal">({questions.length})</span>
             </h2>
@@ -494,67 +556,6 @@ export default function CreateAssignment() {
               <p className="font-body text-sm">Sin preguntas. El video se reproducirá sin interrupciones.</p>
             </div>
           )}
-        </div>
-
-        {/* ── Bloque 4: Asignación ── */}
-        <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
-          <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">4</span>
-            Asignación
-          </h2>
-
-          {/* Selección múltiple de grupos */}
-          <div className="mb-4">
-            <label className="label-style">
-              Grupos * 
-              {selectedGroupIds.length > 0 && (
-                <span className="ml-2 text-xs font-mono text-green-700 font-normal">
-                  {selectedGroupIds.length} seleccionado{selectedGroupIds.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </label>
-            {groups.length === 0 ? (
-              <p className="text-sm text-ink-400 font-body">No tienes grupos activos. <a href="/teacher/groups" className="text-crimson-500 underline">Crea uno primero.</a></p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {groups.map(g => {
-                  const isSelected = selectedGroupIds.includes(g.id)
-                  return (
-                    <button
-                      key={g.id}
-                      onClick={() => toggleGroup(g.id)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded border text-left transition-all ${
-                        isSelected
-                          ? 'border-green-600 bg-green-700/10 text-green-800'
-                          : 'border-parchment-300 bg-white text-ink-700 hover:border-gold-400 hover:bg-sepia-100'
-                      }`}
-                    >
-                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                        isSelected ? 'bg-green-600 border-green-600' : 'border-parchment-400'
-                      }`}>
-                        {isSelected && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-body font-medium text-sm truncate">{g.name}</p>
-                        {g.grado && <p className="text-xs text-ink-400 truncate">{g.grado}</p>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Fecha límite */}
-          <div>
-            <label className="label-style">Fecha límite (opcional)</label>
-            <input
-              type="datetime-local"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-              className="input-style w-full"
-            />
-          </div>
         </div>
 
         {/* ── Botones ── */}
@@ -652,12 +653,7 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
             </div>
             <div>
               <label className="label-style">Puntos</label>
-              <input
-                type="number" min={1} max={100}
-                value={q.points}
-                onChange={e => onUpdate({ points: Number(e.target.value) })}
-                className="input-style w-full font-mono text-sm"
-              />
+              <input type="number" min={1} max={100} value={q.points} onChange={e => onUpdate({ points: Number(e.target.value) })} className="input-style w-full font-mono text-sm" />
             </div>
           </div>
 
@@ -677,20 +673,9 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <label className="label-style">Opciones (marca la correcta)</label>
               {q.options.map(opt => (
                 <div key={opt.id} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`correct-${idx}`}
-                    checked={q.correct_answer === opt.id}
-                    onChange={() => onUpdate({ correct_answer: opt.id })}
-                    className="w-4 h-4 accent-gold-500 flex-shrink-0"
-                  />
+                  <input type="radio" name={`correct-${idx}`} checked={q.correct_answer === opt.id} onChange={() => onUpdate({ correct_answer: opt.id })} className="w-4 h-4 accent-gold-500 flex-shrink-0" />
                   <span className="font-mono text-xs text-ink-400 w-4">{opt.id.toUpperCase()})</span>
-                  <input
-                    value={opt.text}
-                    onChange={e => onUpdateOption(opt.id, e.target.value)}
-                    placeholder={`Opción ${opt.id.toUpperCase()}`}
-                    className="input-style flex-1 text-sm"
-                  />
+                  <input value={opt.text} onChange={e => onUpdateOption(opt.id, e.target.value)} placeholder={`Opción ${opt.id.toUpperCase()}`} className="input-style flex-1 text-sm" />
                 </div>
               ))}
             </div>
@@ -702,16 +687,8 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <div className="flex gap-3">
                 {['true', 'false'].map(val => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={`tf-${idx}`}
-                      checked={q.correct_answer === val}
-                      onChange={() => onUpdate({ correct_answer: val })}
-                      className="w-4 h-4 accent-gold-500"
-                    />
-                    <span className="font-body text-sm text-ink-700">
-                      {val === 'true' ? '✓ Verdadero' : '✗ Falso'}
-                    </span>
+                    <input type="radio" name={`tf-${idx}`} checked={q.correct_answer === val} onChange={() => onUpdate({ correct_answer: val })} className="w-4 h-4 accent-gold-500" />
+                    <span className="font-body text-sm text-ink-700">{val === 'true' ? '✓ Verdadero' : '✗ Falso'}</span>
                   </label>
                 ))}
               </div>
