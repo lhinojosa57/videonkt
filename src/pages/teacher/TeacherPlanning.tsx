@@ -89,8 +89,41 @@ export default function TeacherPlanning() {
   }
 
   const handleGeneratePDF = (assignment: any) => {
-    const campoNombre = CAMPOS_FORMATIVOS.find(c => c.id === assignment.contenido?.campo_formativo_id)?.nombre ?? '—'
+    const campoNombre = CAMPOS_FORMATIVOS.find(c => c.id === assignment.contenido?.campo_formativo_id)?.nombre
+      ?? CAMPOS_FORMATIVOS.find(c => c.id === assignment.tema_libro?.campo_formativo_id)?.nombre
+      ?? '—'
+    const materia = assignment.tema_libro?.materia ?? '—'
+    const grado = assignment.tema_libro?.grado ?? '—'
     const questions = assignment.questions ?? []
+    const logoUrl = `${window.location.origin}/logo-nikola-tesla.png`
+
+    const typeLabel: Record<string, string> = {
+      multiple_choice: 'Opción múltiple',
+      true_false: 'Verdadero / Falso',
+      open: 'Pregunta abierta',
+    }
+
+    const questionsHtml = questions.map((q: any, i: number) => {
+      const mins = Math.floor(q.timestamp_seconds / 60)
+      const secs = q.timestamp_seconds % 60
+      const time = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
+      const optionsHtml = q.question_type === 'multiple_choice' && Array.isArray(q.options)
+        ? `<div class="options">${q.options.filter((o: any) => o.text?.trim()).map((o: any) =>
+            `<div class="option"><span class="opt-id">${o.id.toUpperCase()})</span> ${o.text}</div>`
+          ).join('')}</div>`
+        : q.question_type === 'true_false'
+        ? `<div class="options"><div class="option">✓ Verdadero</div><div class="option">✗ Falso</div></div>`
+        : ''
+      return `
+      <div class="question">
+        <div class="q-header">
+          <span class="q-type">${typeLabel[q.question_type] ?? q.question_type} · ${q.points} pts</span>
+          <span class="q-time">⏱ ${time}</span>
+        </div>
+        <div class="q-text">${i + 1}. ${q.question_text}</div>
+        ${optionsHtml}
+      </div>`
+    }).join('')
 
     const html = `
 <!DOCTYPE html>
@@ -100,53 +133,88 @@ export default function TeacherPlanning() {
   <title>Planeación – ${assignment.title}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Georgia, serif; color: #1a1208; background: white; padding: 40px; font-size: 13px; }
-    .header { border-bottom: 3px solid #9b1c1c; padding-bottom: 16px; margin-bottom: 24px; }
-    .header h1 { font-size: 22px; color: #9b1c1c; margin-bottom: 4px; }
-    .header .meta { color: #5c4424; font-size: 12px; }
-    .school { font-size: 11px; color: #7a5c34; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .section { margin-bottom: 20px; }
-    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #9b1c1c; border-bottom: 1px solid #e8d3a9; padding-bottom: 4px; margin-bottom: 10px; font-family: 'Courier New', monospace; }
+    body { font-family: Georgia, serif; color: #555758; background: white; padding: 40px; font-size: 13px; }
+
+    /* Header institucional */
+    .header { display: flex; align-items: flex-start; gap: 20px; border-bottom: 3px solid #218b45; padding-bottom: 16px; margin-bottom: 24px; }
+    .header-logo { width: 60px; height: 60px; object-fit: contain; flex-shrink: 0; }
+    .header-info { flex: 1; }
+    .school-name { font-size: 11px; color: #218b45; text-transform: uppercase; letter-spacing: 1.5px; font-family: 'Courier New', monospace; margin-bottom: 4px; }
+    .header h1 { font-size: 20px; color: #15853a; margin-bottom: 4px; line-height: 1.3; }
+    .header .meta { color: #555758; font-size: 11px; }
+    .status-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-family: 'Courier New', monospace; margin-left: 8px; }
+    .status-pub { background: #93c5a1; color: #15853a; }
+    .status-draft { background: #e5e7eb; color: #555758; }
+
+    /* Secciones */
+    .section { margin-bottom: 18px; }
+    .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #218b45; border-bottom: 1px solid #93c5a1; padding-bottom: 4px; margin-bottom: 10px; font-family: 'Courier New', monospace; }
+
+    /* Campos */
     .field { margin-bottom: 8px; }
-    .field label { font-size: 11px; color: #7a5c34; display: block; margin-bottom: 2px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-    .field p { color: #1a1208; line-height: 1.5; }
+    .field label { font-size: 10px; color: #93c5a1; display: block; margin-bottom: 2px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field p { color: #555758; line-height: 1.5; }
+
+    /* Grids */
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-    .question { border: 1px solid #e8d3a9; border-radius: 4px; padding: 10px; margin-bottom: 8px; background: #fdf8f0; }
-    .question .q-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .question .q-type { font-family: 'Courier New', monospace; font-size: 10px; color: #9b1c1c; text-transform: uppercase; }
-    .question .q-time { font-family: 'Courier New', monospace; font-size: 10px; color: #7a5c34; }
-    .question .q-text { line-height: 1.4; }
-    .observaciones { border: 1px solid #e8d3a9; border-radius: 4px; padding: 12px; min-height: 80px; background: #fdf8f0; line-height: 1.6; white-space: pre-wrap; }
-    .score-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: 'Courier New', monospace; font-size: 13px; font-weight: bold; }
-    .score-high { background: #dcfce7; color: #15803d; }
+
+    /* Info boxes */
+    .info-box { background: #fdfefd; border: 1px solid #93c5a1; border-radius: 4px; padding: 10px; }
+    .info-box .ib-label { font-size: 10px; font-family: 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.5px; color: #93c5a1; margin-bottom: 3px; }
+    .info-box .ib-value { color: #555758; font-size: 13px; font-weight: bold; }
+
+    /* Preguntas */
+    .question { border: 1px solid #93c5a1; border-radius: 4px; padding: 10px; margin-bottom: 8px; background: #fdfefd; }
+    .q-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .q-type { font-family: 'Courier New', monospace; font-size: 10px; color: #218b45; text-transform: uppercase; }
+    .q-time { font-family: 'Courier New', monospace; font-size: 10px; color: #93c5a1; }
+    .q-text { line-height: 1.4; color: #555758; margin-bottom: 6px; }
+    .options { margin-top: 6px; padding-left: 8px; border-left: 2px solid #93c5a1; }
+    .option { font-size: 12px; color: #555758; padding: 2px 0; }
+    .opt-id { font-family: 'Courier New', monospace; font-size: 10px; color: #218b45; margin-right: 4px; }
+
+    /* Resultados */
+    .score-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-family: 'Courier New', monospace; font-size: 14px; font-weight: bold; }
+    .score-high { background: #93c5a1; color: #15853a; }
     .score-mid { background: #fef9c3; color: #854d0e; }
     .score-low { background: #fee2e2; color: #991b1b; }
-    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e8d3a9; font-size: 10px; color: #7a5c34; display: flex; justify-content: space-between; font-family: 'Courier New', monospace; }
+
+    /* Observaciones */
+    .observaciones { border: 1px solid #93c5a1; border-radius: 4px; padding: 12px; min-height: 80px; background: #fdfefd; line-height: 1.6; white-space: pre-wrap; color: #555758; }
+    .obs-empty { color: #93c5a1; font-style: italic; }
+
+    /* Footer */
+    .footer { margin-top: 32px; padding-top: 10px; border-top: 2px solid #218b45; font-size: 10px; color: #93c5a1; display: flex; justify-content: space-between; font-family: 'Courier New', monospace; }
+
     @media print { body { padding: 20px; } }
   </style>
 </head>
 <body>
+
   <div class="header">
-    <div class="school">Colegio Nikola Tesla · VideoNKT</div>
-    <h1>${assignment.title}</h1>
-    <div class="meta">Generado el ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })} · Docente: ${profile?.full_name ?? ''}</div>
+    <img src="${logoUrl}" class="header-logo" alt="Colegio Nikola Tesla" />
+    <div class="header-info">
+      <div class="school-name">Colegio Nikola Tesla · VideoNKT</div>
+      <h1>${assignment.title} <span class="status-badge ${assignment.is_published ? 'status-pub' : 'status-draft'}">${assignment.is_published ? 'Publicada' : 'Borrador'}</span></h1>
+      <div class="meta">Generado el ${format(new Date(), "d 'de' MMMM 'de' yyyy", { locale: es })} &nbsp;·&nbsp; Docente: ${profile?.full_name ?? ''}</div>
+    </div>
   </div>
 
   <div class="section">
     <div class="section-title">Información general</div>
     <div class="grid-3">
-      <div class="field">
-        <label>Materia</label>
-        <p>${assignment.tema_libro?.materia ?? '—'}</p>
+      <div class="info-box">
+        <div class="ib-label">Materia</div>
+        <div class="ib-value">${materia}</div>
       </div>
-      <div class="field">
-        <label>Grado</label>
-        <p>${assignment.tema_libro?.grado ?? '—'}</p>
+      <div class="info-box">
+        <div class="ib-label">Grado</div>
+        <div class="ib-value">${grado}</div>
       </div>
-      <div class="field">
-        <label>Campo formativo</label>
-        <p>${campoNombre}</p>
+      <div class="info-box">
+        <div class="ib-label">Campo formativo</div>
+        <div class="ib-value" style="font-size:11px;">${campoNombre}</div>
       </div>
     </div>
   </div>
@@ -158,23 +226,14 @@ export default function TeacherPlanning() {
       <label>Tema principal</label>
       <p>${assignment.tema_libro.tema_principal}</p>
     </div>
-    ${assignment.tema_libro.subtema ? `
-    <div class="field">
-      <label>Subtema</label>
-      <p>${assignment.tema_libro.subtema}</p>
-    </div>` : ''}
-    <div class="field">
-      <label>Página</label>
-      <p>${assignment.tema_libro.pagina}</p>
-    </div>
+    ${assignment.tema_libro.subtema ? `<div class="field"><label>Subtema</label><p>${assignment.tema_libro.subtema}</p></div>` : ''}
+    <div class="field"><label>Página</label><p>${assignment.tema_libro.pagina}</p></div>
   </div>` : ''}
 
   ${assignment.contenido ? `
   <div class="section">
     <div class="section-title">Contenido NEM</div>
-    <div class="field">
-      <p>[${assignment.contenido.codigo}] ${assignment.contenido.nombre}</p>
-    </div>
+    <div class="field"><p><span style="font-family:'Courier New';font-size:11px;color:#93c5a1;">[${assignment.contenido.codigo}]</span> ${assignment.contenido.nombre}</p></div>
   </div>` : ''}
 
   ${assignment.aprendizaje ? `
@@ -188,48 +247,35 @@ export default function TeacherPlanning() {
   ${questions.length > 0 ? `
   <div class="section">
     <div class="section-title">Preguntas interactivas (${questions.length})</div>
-    ${questions.map((q: any, i: number) => {
-      const mins = Math.floor(q.timestamp_seconds / 60)
-      const secs = q.timestamp_seconds % 60
-      const time = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`
-      const typeLabel: Record<string, string> = {
-        multiple_choice: 'Opción múltiple',
-        true_false: 'Verdadero / Falso',
-        open: 'Pregunta abierta',
-      }
-      return `
-      <div class="question">
-        <div class="q-header">
-          <span class="q-type">${typeLabel[q.question_type] ?? q.question_type} · ${q.points} pts</span>
-          <span class="q-time">⏱ ${time}</span>
-        </div>
-        <div class="q-text">${i + 1}. ${q.question_text}</div>
-      </div>`
-    }).join('')}
+    ${questionsHtml}
   </div>` : ''}
 
   ${assignment.sessionCount > 0 ? `
   <div class="section">
     <div class="section-title">Resultados del grupo</div>
     <div class="grid-2">
-      <div class="field">
-        <label>Estudiantes que realizaron la actividad</label>
-        <p>${assignment.sessionCount}</p>
+      <div class="info-box">
+        <div class="ib-label">Estudiantes que realizaron la actividad</div>
+        <div class="ib-value">${assignment.sessionCount}</div>
       </div>
-      <div class="field">
-        <label>Promedio de calificación</label>
-        <p>
+      <div class="info-box">
+        <div class="ib-label">Promedio de calificación</div>
+        <div class="ib-value">
           <span class="score-badge ${assignment.avgScore >= 80 ? 'score-high' : assignment.avgScore >= 60 ? 'score-mid' : 'score-low'}">
             ${assignment.avgScore}/100
           </span>
-        </p>
+        </div>
       </div>
     </div>
   </div>` : ''}
 
   <div class="section">
     <div class="section-title">Observaciones del docente</div>
-    <div class="observaciones">${assignment.observaciones ? assignment.observaciones.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'Sin observaciones.'}</div>
+    <div class="observaciones">${
+      assignment.observaciones
+        ? assignment.observaciones.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        : '<span class="obs-empty">Sin observaciones registradas.</span>'
+    }</div>
   </div>
 
   <div class="footer">
