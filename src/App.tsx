@@ -85,6 +85,7 @@ export default function App() {
         <Route path="assignments" element={<TeacherAssignments />} />
         <Route path="assignments/new" element={<CreateAssignment />} />
         <Route path="assignments/:id/edit" element={<CreateAssignment />} />
+        <Route path="planning" element={<TeacherPlanning />} />
         <Route path="reports" element={<TeacherReports />} />
         <Route path="admin/teachers" element={
           <AdminRoute><AdminTeachers /></AdminRoute>
