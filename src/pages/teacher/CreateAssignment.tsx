@@ -275,15 +275,14 @@ export default function CreateAssignment() {
 
     try {
       // 1. Obtener transcripción via Edge Function
-      const { data: { session } } = await supabase.auth.getSession()
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
       const transcriptRes = await fetch(
         'https://vioylqkituyzknwfpbhu.supabase.co/functions/v1/get-transcript',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${anonKey}`,
           },
           body: JSON.stringify({ url: videoUrl.trim() })
         }
