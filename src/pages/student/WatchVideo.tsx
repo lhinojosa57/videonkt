@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
-import { CheckCircle, ArrowLeft, Send } from 'lucide-react'
+import { CheckCircle, ArrowLeft, Send, Volume2, VolumeX } from 'lucide-react'
 
 const supabase = SupabaseTypes.supabase
 
@@ -33,6 +33,7 @@ export default function WatchVideo() {
   const durationAccRef = useRef<number>(0)
   const videoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const questionElapsedRef = useRef<number>(0)
   const videoSecondsRef = useRef<number>(0)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -132,10 +133,10 @@ export default function WatchVideo() {
 
     if (questionTimerRef.current) clearInterval(questionTimerRef.current)
     const limit = q.question_type === 'open' ? 60 : 20
-    let elapsed = 0
+    questionElapsedRef.current = 0
     questionTimerRef.current = setInterval(() => {
-      elapsed++
-      if (elapsed >= limit) {
+      questionElapsedRef.current++
+      if (questionElapsedRef.current >= limit) {
         clearInterval(questionTimerRef.current!)
         questionTimerRef.current = null
         setIsTimeUp(true)
@@ -222,7 +223,10 @@ export default function WatchVideo() {
     setActivityState('time_up')
   }
 
-  // ── Continue after question ────────────────────────────────────────────────
+  // ── Add time to question timer (used by TTS) ───────────────────────────────
+  const addQuestionTime = useCallback((seconds: number) => {
+    questionElapsedRef.current = Math.max(0, questionElapsedRef.current - seconds)
+  }, [])
   const continueVideo = useCallback(() => {
   const newAnswered = new Set([...answeredQuestions, activeQuestion?.id ?? ''])
   setActivityState('playing')
@@ -358,6 +362,7 @@ export default function WatchVideo() {
                   isTimeUp={isTimeUp}
                   activityState={activityState}
                   onContinue={continueVideo}
+                  onAddTime={addQuestionTime}
                 />
               </div>
             </div>
@@ -368,9 +373,39 @@ export default function WatchVideo() {
   )
 }
 
+// ─── Text-to-Speech hook ──────────────────────────────────────────────────────
+
+function useTTS() {
+  const [speaking, setSpeaking] = useState(false)
+
+  const speak = useCallback((text: string) => {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'es-MX'
+    utterance.rate = 0.9
+    utterance.onstart = () => setSpeaking(true)
+    utterance.onend = () => setSpeaking(false)
+    utterance.onerror = () => setSpeaking(false)
+    window.speechSynthesis.speak(utterance)
+  }, [])
+
+  const stop = useCallback(() => {
+    window.speechSynthesis?.cancel()
+    setSpeaking(false)
+  }, [])
+
+  // Cancelar al desmontar
+  useEffect(() => {
+    return () => { window.speechSynthesis?.cancel() }
+  }, [])
+
+  return { speak, stop, speaking }
+}
+
 // ─── Question Overlay ─────────────────────────────────────────────────────────
 
-function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitting, isTimeUp, activityState, onContinue }: {
+function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitting, isTimeUp, activityState, onContinue, onAddTime }: {
   question: any
   currentAnswer: string
   onAnswer: (a: string) => void
@@ -379,8 +414,11 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
   isTimeUp: boolean
   activityState: string
   onContinue: () => void
+  onAddTime: (seconds: number) => void
 }) {
-  
+  const { speak, stop, speaking } = useTTS()
+  const [ttsUsed, setTtsUsed] = useState(false)
+
   const typeLabel: Record<string, string> = {
     multiple_choice: 'Opción múltiple',
     true_false: 'Verdadero / Falso',
@@ -391,6 +429,29 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
   const showForm = activityState === 'paused_question'
   const showContinue = activityState === 'time_up'
 
+  const buildSpeechText = () => {
+    let text = question.question_text
+    if (question.question_type === 'multiple_choice' && question.options) {
+      const opts = question.options
+        .filter((o: any) => o.text.trim())
+        .map((o: any) => `${o.id.toUpperCase()}: ${o.text}`)
+        .join('. ')
+      text += `. Las opciones son: ${opts}`
+    } else if (question.question_type === 'true_false') {
+      text += '. Responde verdadero o falso.'
+    }
+    return text
+  }
+
+  const handleTTS = () => {
+    if (speaking) { stop(); return }
+    if (!ttsUsed) {
+      onAddTime(30)
+      setTtsUsed(true)
+    }
+    speak(buildSpeechText())
+  }
+
   return (
     <div className="bg-parchment-50 rounded-sm shadow-raised border border-parchment-200 overflow-hidden">
       <div className="bg-crimson-500 px-5 py-3 flex items-center justify-between">
@@ -399,9 +460,27 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
       </div>
 
       <div className="p-5" style={{ userSelect: 'none' }}>
-        <p className="font-display text-lg font-semibold text-ink-800 mb-5 leading-snug">
-          {question.question_text}
-        </p>
+        {/* Pregunta con botón TTS */}
+        <div className="flex items-start gap-3 mb-5">
+          <p className="font-display text-lg font-semibold text-ink-800 leading-snug flex-1">
+            {question.question_text}
+          </p>
+          {'speechSynthesis' in window && (
+            <button
+              onClick={handleTTS}
+              title={speaking ? 'Detener lectura' : ttsUsed ? 'Escuchar de nuevo' : 'Escuchar pregunta (+30s)'}
+              className={`flex-shrink-0 mt-0.5 p-2 rounded-full transition-colors ${
+                speaking
+                  ? 'bg-crimson-500/10 text-crimson-500 hover:bg-crimson-500/20'
+                  : ttsUsed
+                  ? 'bg-ink-100 text-ink-400 hover:bg-ink-200'
+                  : 'bg-ink-100 text-ink-500 hover:bg-ink-200 hover:text-ink-700'
+              }`}
+            >
+              {speaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          )}
+        </div>
 
         {isTimeUp && (
           <div className="rounded p-4 mb-4 border bg-crimson-500/10 border-crimson-500/20">
