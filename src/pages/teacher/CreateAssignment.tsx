@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
-import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen, Sparkles, Loader } from 'lucide-react'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -264,7 +264,130 @@ export default function CreateAssignment() {
     setQuestions(prev => prev.map((q, i) => i === qIdx
       ? { ...q, options: q.options.map(o => o.id === optId ? { ...o, text } : o) } : q))
 
-  const filteredTemas = temasLibro.filter(t => {
+  const [generatingAI, setGeneratingAI] = useState(false)
+  const [aiError, setAiError] = useState('')
+
+  // ── Generar preguntas con IA ───────────────────────────────────────────────
+  const generateWithAI = async () => {
+    if (!videoUrl.trim()) return
+    setGeneratingAI(true)
+    setAiError('')
+
+    try {
+      // 1. Obtener transcripción via Edge Function
+      const transcriptRes = await supabase.functions.invoke('get-transcript', {
+        body: { url: videoUrl.trim() }
+      })
+
+      if (transcriptRes.error || !transcriptRes.data?.transcript) {
+        throw new Error(transcriptRes.data?.error || 'No se pudo obtener la transcripción del video. Verifica que tenga subtítulos activados.')
+      }
+
+      const transcript: string = transcriptRes.data.transcript
+      const segments: { text: string; start: number }[] = transcriptRes.data.segments ?? []
+
+      // 2. Construir contexto pedagógico
+      const contexto = [
+        title && `Título de la actividad: ${title}`,
+        materiaFinal && `Materia: ${materiaFinal}`,
+        inferredGrado && `Grado: ${inferredGrado}`,
+        selectedTema && `Tema del libro: ${selectedTema.tema_principal}`,
+        selectedContenido && `Contenido NEM: ${selectedContenido.nombre}`,
+        selectedAprendizaje && `PDA: ${selectedAprendizaje.descripcion}`,
+      ].filter(Boolean).join('\n')
+
+      // 3. Llamar a Claude API
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: `Eres un experto en diseño de actividades de aprendizaje para educación secundaria en México (Nueva Escuela Mexicana).
+
+Contexto pedagógico:
+${contexto}
+
+Transcripción del video con timestamps (formato "inicio_segundos|texto"):
+${segments.length > 0
+  ? segments.map(s => `${s.start}|${s.text}`).join('\n')
+  : transcript.substring(0, 3000)
+}
+
+Genera exactamente 4 preguntas interactivas basadas en el contenido REAL del video. Las preguntas deben:
+- Estar ancladas a momentos específicos del video (usa los timestamps)
+- Verificar comprensión genuina, no memorización de datos triviales
+- Incluir 2 preguntas de opción múltiple, 1 verdadero/falso y 1 pregunta abierta
+- Estar redactadas en español claro para estudiantes de secundaria
+
+Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin markdown:
+{
+  "preguntas": [
+    {
+      "tipo": "multiple_choice",
+      "timestamp_segundos": 45,
+      "texto": "...",
+      "opciones": [
+        {"id": "a", "texto": "..."},
+        {"id": "b", "texto": "..."},
+        {"id": "c", "texto": "..."},
+        {"id": "d", "texto": "..."}
+      ],
+      "respuesta_correcta": "a",
+      "puntos": 10
+    },
+    {
+      "tipo": "true_false",
+      "timestamp_segundos": 120,
+      "texto": "...",
+      "respuesta_correcta": "true",
+      "puntos": 10
+    },
+    {
+      "tipo": "open",
+      "timestamp_segundos": 200,
+      "texto": "...",
+      "puntos": 20
+    }
+  ]
+}`
+          }]
+        })
+      })
+
+      if (!response.ok) throw new Error('Error al conectar con la IA')
+
+      const data = await response.json()
+      const raw = data.content?.[0]?.text ?? ''
+      const clean = raw.replace(/```json|```/g, '').trim()
+      const parsed = JSON.parse(clean)
+
+      if (!parsed.preguntas?.length) throw new Error('La IA no generó preguntas válidas')
+
+      // 4. Convertir al formato QuestionForm y agregar a las preguntas existentes
+      const nuevas: QuestionForm[] = parsed.preguntas.map((p: any, i: number) => ({
+        timestamp_seconds: Math.round(p.timestamp_segundos ?? 60),
+        question_type: p.tipo as QuestionType,
+        question_text: p.texto ?? '',
+        options: p.tipo === 'multiple_choice'
+          ? (p.opciones ?? []).map((o: any) => ({ id: o.id, text: o.texto }))
+          : [{ id: 'a', text: '' }, { id: 'b', text: '' }, { id: 'c', text: '' }, { id: 'd', text: '' }],
+        correct_answer: p.tipo === 'open' ? '' : (p.respuesta_correcta ?? 'a'),
+        points: p.puntos ?? 10,
+        order_index: questions.length + i,
+      }))
+
+      setQuestions(prev => [...prev.filter(q => q.question_text.trim()), ...nuevas])
+      setExpandedQ(questions.filter(q => q.question_text.trim()).length) // abrir la primera nueva
+
+    } catch (err: any) {
+      setAiError(err.message ?? 'Error desconocido')
+    } finally {
+      setGeneratingAI(false)
+    }
+  }
     const q = normalize(searchTema)
     if (!q) return true
     return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
@@ -490,10 +613,39 @@ export default function CreateAssignment() {
               Preguntas interactivas
               <span className="font-mono text-sm text-ink-400 font-normal">({questions.length})</span>
             </h2>
-            <button onClick={addQuestion} className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body">
-              <Plus className="w-3.5 h-3.5" /> Agregar pregunta
-            </button>
+            <div className="flex items-center gap-2">
+              {videoUrl.trim() && (
+                <button
+                  onClick={generateWithAI}
+                  disabled={generatingAI}
+                  title="Generar preguntas automáticamente a partir del video"
+                  className="flex items-center gap-1.5 text-sm bg-gold-400/20 border border-gold-400/40 text-gold-700 px-3 py-1.5 rounded hover:bg-gold-400/30 disabled:opacity-50 transition-colors font-body font-medium"
+                >
+                  {generatingAI
+                    ? <><Loader className="w-3.5 h-3.5 animate-spin" /> Generando…</>
+                    : <><Sparkles className="w-3.5 h-3.5" /> Generar con IA</>
+                  }
+                </button>
+              )}
+              <button onClick={addQuestion} className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body">
+                <Plus className="w-3.5 h-3.5" /> Agregar pregunta
+              </button>
+            </div>
           </div>
+          {aiError && (
+            <div className="mb-4 p-3 bg-crimson-500/10 border border-crimson-500/20 rounded text-sm font-body text-crimson-600">
+              ⚠️ {aiError}
+            </div>
+          )}
+          {generatingAI && (
+            <div className="mb-4 p-4 bg-gold-400/10 border border-gold-400/30 rounded text-sm font-body text-ink-600 flex items-center gap-3">
+              <Loader className="w-4 h-4 animate-spin text-gold-600 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-ink-700">Analizando el video con IA…</p>
+                <p className="text-xs text-ink-500 mt-0.5">Obteniendo transcripción y generando preguntas. Puede tomar 15-30 segundos.</p>
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             {questions.map((q, idx) => (
               <QuestionEditor key={idx} q={q} idx={idx} isExpanded={expandedQ === idx}
