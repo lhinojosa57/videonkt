@@ -19,7 +19,7 @@ interface GroupWithCount {
   student_count: number
 }
 
-const GRADOS = ['1° Secundaria', '2° Secundaria', '3° Secundaria']
+const GRADOS = ['Primer grado', 'Segundo grado', 'Tercer grado']
 
 const CAMPOS_FORMATIVOS = [
   {
