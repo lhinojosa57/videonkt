@@ -84,31 +84,41 @@ export default function CreateAssignment() {
   // ── Preguntas ──────────────────────────────────────────────────────────────
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
 
-  // ── Inferir materia y grado de los grupos seleccionados ────────────────────
-  const { inferredMateria, inferredGrado } = useMemo(() => {
+  // ── Inferir materia y grados de los grupos seleccionados ──────────────────
+  const ALL_GRADOS = ['1° Secundaria', '2° Secundaria', '3° Secundaria']
+
+  const { inferredMateria, gradosParaFiltrar } = useMemo(() => {
     const selected = groups.filter(g => selectedGroupIds.includes(g.id))
-    if (selected.length === 0) return { inferredMateria: null, inferredGrado: null }
+    if (selected.length === 0) return { inferredMateria: null, gradosParaFiltrar: [] }
 
-    // Recopilar todas las materias y grados únicos
+    // Recopilar materias únicas (excluyendo grupos sin materias)
     const materias = new Set<string>()
-    const grados = new Set<string>()
-
     selected.forEach(g => {
-      if (g.grado) grados.add(g.grado)
       const mats = Array.isArray(g.materias) ? g.materias : []
-      mats.forEach((m: string) => materias.add(m))
+      mats.forEach((m: string) => { if (m) materias.add(m) })
     })
 
-    // Solo inferir si todos los grupos comparten una sola materia y un solo grado
+    // Solo podemos inferir si todos los grupos tienen la misma materia
     const inferredMateria = materias.size === 1 ? [...materias][0] : null
-    const inferredGrado = grados.size === 1 ? [...grados][0] : null
 
-    return { inferredMateria, inferredGrado }
+    // Calcular grados a filtrar
+    const gradosSet = new Set<string>()
+    selected.forEach(g => {
+      const grado = g.grado ?? ''
+      if (!grado || grado === 'Multigrado') {
+        // Sin grado o multigrado → incluir todos
+        ALL_GRADOS.forEach(gr => gradosSet.add(gr))
+      } else {
+        gradosSet.add(grado)
+      }
+    })
+
+    return { inferredMateria, gradosParaFiltrar: [...gradosSet] }
   }, [selectedGroupIds, groups])
 
-  // ── Cargar temas cuando cambia materia+grado ───────────────────────────────
+  // ── Cargar temas cuando cambia materia o grados ────────────────────────────
   useEffect(() => {
-    if (!inferredMateria || !inferredGrado) {
+    if (!inferredMateria || gradosParaFiltrar.length === 0) {
       setTemasLibro([])
       setSelectedTema(null)
       setSelectedContenido(null)
@@ -126,13 +136,14 @@ export default function CreateAssignment() {
       .from('temas_libro')
       .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
       .eq('materia', inferredMateria)
-      .eq('grado', inferredGrado)
+      .in('grado', gradosParaFiltrar)
+      .order('grado')
       .order('orden')
       .then(({ data }) => {
         setTemasLibro(data ?? [])
         setLoadingTemas(false)
       })
-  }, [inferredMateria, inferredGrado])
+  }, [inferredMateria, JSON.stringify(gradosParaFiltrar)])
 
   // ── Al seleccionar tema, jalar NEM y PDA ───────────────────────────────────
   useEffect(() => {
@@ -303,11 +314,6 @@ export default function CreateAssignment() {
     return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
   })
 
-  // Detectar si hay múltiples materias/grados en grupos seleccionados
-  const selectedGroups = groups.filter(g => selectedGroupIds.includes(g.id))
-  const hasMultipleMaterias = selectedGroups.length > 0 && !inferredMateria
-  const hasMultipleGrados = selectedGroups.length > 0 && !inferredGrado
-
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
@@ -382,18 +388,15 @@ export default function CreateAssignment() {
                 </div>
               )}
 
-              {/* Aviso si grupos de distintas materias/grados */}
-              {(hasMultipleMaterias || hasMultipleGrados) && (
-                <div className="mt-3 p-3 bg-gold-400/10 border border-gold-400/30 rounded text-sm font-body text-ink-600">
-                  ⚠️ Los grupos seleccionados tienen {hasMultipleMaterias ? 'distintas materias' : ''}{hasMultipleMaterias && hasMultipleGrados ? ' y ' : ''}{hasMultipleGrados ? 'distintos grados' : ''}. No se puede vincular un tema del libro automáticamente.
-                </div>
-              )}
-
-              {/* Materia y grado inferidos */}
-              {inferredMateria && inferredGrado && (
+              {/* Materia inferida */}
+              {inferredMateria && gradosParaFiltrar.length > 0 && (
                 <div className="mt-3 flex items-center gap-2 text-sm font-body text-ink-600 bg-sepia-100 px-3 py-2 rounded border border-parchment-200">
                   <BookOpen className="w-4 h-4 text-ink-400 flex-shrink-0" />
-                  <span>Materia detectada: <strong>{inferredMateria}</strong> · <strong>{inferredGrado}</strong></span>
+                  <span>
+                    Materia: <strong>{inferredMateria}</strong>
+                    {' · '}
+                    {gradosParaFiltrar.length === 3 ? 'Todos los grados' : gradosParaFiltrar.join(', ')}
+                  </span>
                 </div>
               )}
             </div>
@@ -416,17 +419,22 @@ export default function CreateAssignment() {
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">2</span>
             Tema del libro de texto
-            <span className="text-xs font-mono text-ink-400 font-normal">(opcional)</span>
           </h2>
 
-          {!inferredMateria || !inferredGrado ? (
+          {!inferredMateria ? (
             <p className="text-sm font-body text-ink-400">
-              Selecciona grupos con la misma materia y grado para ver los temas disponibles.
+              {selectedGroupIds.length === 0
+                ? 'Selecciona al menos un grupo para ver los temas disponibles.'
+                : 'Los grupos seleccionados tienen distintas materias. No se puede vincular un tema automáticamente.'}
+            </p>
+          ) : gradosParaFiltrar.length === 0 ? (
+            <p className="text-sm font-body text-ink-400">
+              Los grupos seleccionados no tienen grado configurado.
             </p>
           ) : loadingTemas ? (
             <div className="flex items-center gap-2 text-sm text-ink-500 font-body">
               <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-              Cargando temas de {inferredMateria} {inferredGrado}…
+              Cargando temas de {inferredMateria}…
             </div>
           ) : (
             <div className="space-y-3">
@@ -435,6 +443,7 @@ export default function CreateAssignment() {
                 <div className="p-3 bg-green-700/10 border border-green-700/20 rounded">
                   <div className="flex items-start justify-between gap-2">
                     <div>
+                      <p className="text-xs font-mono text-ink-400 mb-0.5">{selectedTema.grado}</p>
                       <p className="text-sm font-body font-medium text-green-800">{selectedTema.tema_principal}</p>
                       {selectedTema.subtema && (
                         <p className="text-xs text-green-700 mt-0.5">{selectedTema.subtema}</p>
@@ -456,7 +465,7 @@ export default function CreateAssignment() {
                     placeholder={`Buscar tema de ${inferredMateria}…`}
                     className="input-style w-full"
                   />
-                  <div className="border border-parchment-200 rounded overflow-hidden max-h-56 overflow-y-auto bg-white">
+                  <div className="border border-parchment-200 rounded overflow-hidden max-h-64 overflow-y-auto bg-white">
                     {filteredTemas.length === 0 ? (
                       <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
                     ) : filteredTemas.map(t => (
@@ -465,6 +474,9 @@ export default function CreateAssignment() {
                         onClick={() => setSelectedTema(t)}
                         className="w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 hover:bg-sepia-100 transition-colors"
                       >
+                        {gradosParaFiltrar.length > 1 && (
+                          <p className="text-xs font-mono text-ink-300 mb-0.5">{t.grado}</p>
+                        )}
                         <p className="text-ink-800 font-medium leading-tight">{t.tema_principal}</p>
                         {t.subtema && <p className="text-ink-500 text-xs mt-0.5">{t.subtema}</p>}
                         <p className="text-ink-300 text-xs font-mono mt-0.5">p. {t.pagina}</p>
@@ -487,7 +499,6 @@ export default function CreateAssignment() {
                       📚 Este tema aún no tiene contenido NEM vinculado.
                     </div>
                   )}
-
                   {selectedAprendizaje ? (
                     <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
                       <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">PDA</p>
