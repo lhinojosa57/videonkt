@@ -61,71 +61,64 @@ export default function CreateAssignment() {
   const [saving, setSaving] = useState(false)
   const [expandedQ, setExpandedQ] = useState<number | null>(0)
 
-  // ── Campos principales ─────────────────────────────────────────────────────
   const [title, setTitle] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [isPublished, setIsPublished] = useState(false)
 
-  // ── Grupos ─────────────────────────────────────────────────────────────────
   const [groups, setGroups] = useState<any[]>([])
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+  const [selectedMateria, setSelectedMateria] = useState<string>('')
 
-  // ── Tema del libro ─────────────────────────────────────────────────────────
   const [temasLibro, setTemasLibro] = useState<any[]>([])
   const [selectedTema, setSelectedTema] = useState<any | null>(null)
   const [searchTema, setSearchTema] = useState('')
   const [loadingTemas, setLoadingTemas] = useState(false)
 
-  // ── NEM (solo lectura, jalados del tema) ───────────────────────────────────
   const [selectedContenido, setSelectedContenido] = useState<any | null>(null)
   const [selectedAprendizaje, setSelectedAprendizaje] = useState<any | null>(null)
 
-  // ── Preguntas ──────────────────────────────────────────────────────────────
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
 
-  // ── Inferir materia y grados de los grupos seleccionados ──────────────────
-  const ALL_GRADOS = ['1° Secundaria', '2° Secundaria', '3° Secundaria']
-
-  const { inferredMateria, gradosParaFiltrar } = useMemo(() => {
+  // ── Analizar grupos seleccionados ──────────────────────────────────────────
+  const { gradosUnicos, materiasUnicas, inferredGrado } = useMemo(() => {
     const selected = groups.filter(g => selectedGroupIds.includes(g.id))
-    if (selected.length === 0) return { inferredMateria: null, gradosParaFiltrar: [] }
+    if (selected.length === 0) return { gradosUnicos: [], materiasUnicas: [], inferredGrado: null }
 
-    // Recopilar materias únicas (excluyendo grupos sin materias)
-    const materias = new Set<string>()
-    selected.forEach(g => {
-      const mats = Array.isArray(g.materias) ? g.materias : []
-      mats.forEach((m: string) => { if (m) materias.add(m) })
-    })
-
-    // Solo podemos inferir si todos los grupos tienen la misma materia
-    const inferredMateria = materias.size === 1 ? [...materias][0] : null
-
-    // Calcular grados a filtrar
     const gradosSet = new Set<string>()
+    const materiasSet = new Set<string>()
+
     selected.forEach(g => {
-      const grado = g.grado ?? ''
-      if (!grado || grado === 'Multigrado') {
-        // Sin grado o multigrado → incluir todos
-        ALL_GRADOS.forEach(gr => gradosSet.add(gr))
-      } else {
-        gradosSet.add(grado)
-      }
+      if (g.grado) gradosSet.add(g.grado)
+      const mats = Array.isArray(g.materias) ? g.materias : []
+      mats.forEach((m: string) => { if (m) materiasSet.add(m) })
     })
 
-    return { inferredMateria, gradosParaFiltrar: [...gradosSet] }
+    const gradosArr = [...gradosSet]
+    const materiasArr = [...materiasSet]
+
+    return {
+      gradosUnicos: gradosArr,
+      materiasUnicas: materiasArr,
+      inferredGrado: gradosArr.length === 1 ? gradosArr[0] : null,
+    }
   }, [selectedGroupIds, groups])
 
-  // ── Cargar temas cuando cambia materia o grados ────────────────────────────
+  const materiaFinal = materiasUnicas.length === 1 ? materiasUnicas[0] : selectedMateria
+  const necesitaElegirMateria = materiasUnicas.length > 1
+
+  // Resetear materia al cambiar grupos
+  useEffect(() => { setSelectedMateria('') }, [selectedGroupIds])
+
+  // ── Cargar temas ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!inferredMateria || gradosParaFiltrar.length === 0) {
+    if (!materiaFinal || !inferredGrado) {
       setTemasLibro([])
       setSelectedTema(null)
       setSelectedContenido(null)
       setSelectedAprendizaje(null)
       return
     }
-
     setLoadingTemas(true)
     setSelectedTema(null)
     setSelectedContenido(null)
@@ -135,23 +128,18 @@ export default function CreateAssignment() {
     supabase
       .from('temas_libro')
       .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
-      .eq('materia', inferredMateria)
-      .in('grado', gradosParaFiltrar)
-      .order('grado')
+      .eq('materia', materiaFinal)
+      .eq('grado', inferredGrado)
       .order('orden')
       .then(({ data }) => {
         setTemasLibro(data ?? [])
         setLoadingTemas(false)
       })
-  }, [inferredMateria, JSON.stringify(gradosParaFiltrar)])
+  }, [materiaFinal, inferredGrado])
 
-  // ── Al seleccionar tema, jalar NEM y PDA ───────────────────────────────────
+  // ── Al seleccionar tema ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!selectedTema) {
-      setSelectedContenido(null)
-      setSelectedAprendizaje(null)
-      return
-    }
+    if (!selectedTema) { setSelectedContenido(null); setSelectedAprendizaje(null); return }
     setSelectedContenido(selectedTema.contenido ?? null)
     setSelectedAprendizaje(selectedTema.aprendizaje ?? null)
   }, [selectedTema])
@@ -161,17 +149,14 @@ export default function CreateAssignment() {
     if (!profile?.id) return
 
     supabase.from('groups')
-      .select('id, name, grado, materias')
+      .select('id, name, grado, materias, campo_formativo_id')
       .eq('teacher_id', profile!.id)
       .eq('archived', false)
       .order('name')
       .then(({ data }) => setGroups(data ?? []))
 
     if (isEdit) {
-      supabase.from('video_assignments')
-        .select('*')
-        .eq('id', editId)
-        .single()
+      supabase.from('video_assignments').select('*').eq('id', editId).single()
         .then(async ({ data }) => {
           if (!data) return
           setTitle(data.title ?? '')
@@ -179,33 +164,23 @@ export default function CreateAssignment() {
           setDueDate(data.due_date ? data.due_date.substring(0, 16) : '')
           setIsPublished(data.is_published ?? false)
 
-          // Pre-cargar tema
           if (data.tema_libro_id) {
             const { data: tema } = await supabase
               .from('temas_libro')
               .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
-              .eq('id', data.tema_libro_id)
-              .single()
-            if (tema) setSelectedTema(tema)
+              .eq('id', data.tema_libro_id).single()
+            if (tema) { setSelectedTema(tema); setSelectedMateria(tema.materia ?? '') }
           } else if (data.nem_contenido_id) {
-            // Compatibilidad con actividades antiguas
             const { data: contenido } = await supabase
               .from('nem_contenidos').select('*').eq('id', data.nem_contenido_id).single()
             if (contenido) setSelectedContenido(contenido)
           }
         })
 
-      supabase.from('assignment_groups')
-        .select('group_id')
-        .eq('assignment_id', editId)
-        .then(({ data }) => {
-          setSelectedGroupIds((data ?? []).map((r: any) => r.group_id))
-        })
+      supabase.from('assignment_groups').select('group_id').eq('assignment_id', editId)
+        .then(({ data }) => setSelectedGroupIds((data ?? []).map((r: any) => r.group_id)))
 
-      supabase.from('questions')
-        .select('*')
-        .eq('assignment_id', editId)
-        .order('order_index')
+      supabase.from('questions').select('*').eq('assignment_id', editId).order('order_index')
         .then(({ data }) => {
           if (data && data.length > 0) {
             setQuestions(data.map((q: any) => ({
@@ -224,9 +199,9 @@ export default function CreateAssignment() {
     if (!title.trim()) { alert('El título es obligatorio'); return }
     if (!videoUrl.trim()) { alert('La URL del video es obligatoria'); return }
     if (selectedGroupIds.length === 0) { alert('Selecciona al menos un grupo'); return }
+    if (necesitaElegirMateria && !selectedMateria) { alert('Selecciona la materia de esta actividad'); return }
 
     setSaving(true)
-
     const payload = {
       teacher_id: profile!.id,
       title: title.trim(),
@@ -242,77 +217,60 @@ export default function CreateAssignment() {
     }
 
     let assignmentId = editId
-
     if (isEdit) {
       const { error } = await supabase.from('video_assignments').update(payload).eq('id', editId)
-      if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
+      if (error) { alert(`Error: ${error.message}`); setSaving(false); return }
       await supabase.from('questions').delete().eq('assignment_id', editId)
       await supabase.from('assignment_groups').delete().eq('assignment_id', editId)
     } else {
       const { data, error } = await supabase.from('video_assignments').insert(payload).select().single()
-      if (error) { alert(`Error al guardar: ${error.message}`); setSaving(false); return }
+      if (error) { alert(`Error: ${error.message}`); setSaving(false); return }
       assignmentId = data?.id
     }
 
-    if (!assignmentId) { alert('No se pudo obtener el ID de la actividad'); setSaving(false); return }
+    if (!assignmentId) { alert('No se pudo obtener el ID'); setSaving(false); return }
 
-    const groupRows = selectedGroupIds.map(gid => ({ assignment_id: assignmentId, group_id: gid }))
-    const { error: groupError } = await supabase.from('assignment_groups').insert(groupRows)
-    if (groupError) { alert(`Error al asignar grupos: ${groupError.message}`); setSaving(false); return }
+    const { error: groupError } = await supabase.from('assignment_groups')
+      .insert(selectedGroupIds.map(gid => ({ assignment_id: assignmentId, group_id: gid })))
+    if (groupError) { alert(`Error grupos: ${groupError.message}`); setSaving(false); return }
 
-    const qPayload = questions
-      .filter(q => q.question_text.trim())
-      .map((q, i) => ({
-        assignment_id: assignmentId,
-        timestamp_seconds: q.timestamp_seconds,
-        question_type: q.question_type,
-        question_text: q.question_text,
-        options: q.question_type === 'multiple_choice' ? q.options.filter(o => o.text.trim()) : null,
-        correct_answer: q.question_type === 'open' ? null : q.correct_answer,
-        points: q.points,
-        order_index: i,
-      }))
+    const qPayload = questions.filter(q => q.question_text.trim()).map((q, i) => ({
+      assignment_id: assignmentId,
+      timestamp_seconds: q.timestamp_seconds,
+      question_type: q.question_type,
+      question_text: q.question_text,
+      options: q.question_type === 'multiple_choice' ? q.options.filter(o => o.text.trim()) : null,
+      correct_answer: q.question_type === 'open' ? null : q.correct_answer,
+      points: q.points,
+      order_index: i,
+    }))
     if (qPayload.length > 0) {
       const { error: qError } = await supabase.from('questions').insert(qPayload)
-      if (qError) { alert(`Error al guardar preguntas: ${qError.message}`); setSaving(false); return }
+      if (qError) { alert(`Error preguntas: ${qError.message}`); setSaving(false); return }
     }
 
     setSaving(false)
     navigate('/teacher/assignments')
   }
 
-  const toggleGroup = (id: string) => {
-    setSelectedGroupIds(prev =>
-      prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
-    )
-  }
+  const toggleGroup = (id: string) =>
+    setSelectedGroupIds(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
 
-  const addQuestion = () => {
-    setQuestions(prev => [...prev, newQuestion(prev.length)])
-    setExpandedQ(questions.length)
-  }
-
-  const removeQuestion = (idx: number) => {
-    setQuestions(prev => prev.filter((_, i) => i !== idx))
-    setExpandedQ(null)
-  }
-
-  const updateQuestion = (idx: number, patch: Partial<QuestionForm>) => {
+  const addQuestion = () => { setQuestions(prev => [...prev, newQuestion(prev.length)]); setExpandedQ(questions.length) }
+  const removeQuestion = (idx: number) => { setQuestions(prev => prev.filter((_, i) => i !== idx)); setExpandedQ(null) }
+  const updateQuestion = (idx: number, patch: Partial<QuestionForm>) =>
     setQuestions(prev => prev.map((q, i) => i === idx ? { ...q, ...patch } : q))
-  }
-
-  const updateOption = (qIdx: number, optId: string, text: string) => {
+  const updateOption = (qIdx: number, optId: string, text: string) =>
     setQuestions(prev => prev.map((q, i) => i === qIdx
-      ? { ...q, options: q.options.map(o => o.id === optId ? { ...o, text } : o) }
-      : q
-    ))
-  }
+      ? { ...q, options: q.options.map(o => o.id === optId ? { ...o, text } : o) } : q))
 
   const filteredTemas = temasLibro.filter(t => {
     const q = normalize(searchTema)
     if (!q) return true
     return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
   })
+
+  const canShowTemas = inferredGrado && materiaFinal && gradosUnicos.length === 1
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
@@ -328,26 +286,20 @@ export default function CreateAssignment() {
 
       <div className="space-y-6">
 
-        {/* ── Bloque 1: Asignación a grupos ── */}
+        {/* ── Bloque 1: Asignación ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
             <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
             Asignación
           </h2>
-
           <div className="space-y-4">
-            {/* Título */}
+
             <div>
               <label className="label-style">Título de la actividad *</label>
-              <input
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="ej. Teorema de Pitágoras"
-                className="input-style w-full"
-              />
+              <input value={title} onChange={e => setTitle(e.target.value)}
+                placeholder="ej. Teorema de Pitágoras" className="input-style w-full" />
             </div>
 
-            {/* Selección de grupos */}
             <div>
               <label className="label-style">
                 Grupos *
@@ -364,23 +316,20 @@ export default function CreateAssignment() {
                   {groups.map(g => {
                     const isSelected = selectedGroupIds.includes(g.id)
                     return (
-                      <button
-                        key={g.id}
-                        onClick={() => toggleGroup(g.id)}
+                      <button key={g.id} onClick={() => toggleGroup(g.id)}
                         className={`flex items-center gap-3 px-3 py-2.5 rounded border text-left transition-all ${
-                          isSelected
-                            ? 'border-green-600 bg-green-700/10 text-green-800'
-                            : 'border-parchment-300 bg-white text-ink-700 hover:border-gold-400 hover:bg-sepia-100'
+                          isSelected ? 'border-green-600 bg-green-700/10' : 'border-parchment-300 bg-white hover:border-gold-400 hover:bg-sepia-100'
                         }`}
                       >
-                        <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                        <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 ${
                           isSelected ? 'bg-green-600 border-green-600' : 'border-parchment-400'
                         }`}>
                           {isSelected && <Check className="w-3 h-3 text-white" />}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-body font-medium text-sm truncate">{g.name}</p>
+                          <p className="font-body font-medium text-sm truncate text-ink-800">{g.name}</p>
                           {g.grado && <p className="text-xs text-ink-400 truncate">{g.grado}</p>}
+                          {g.materias?.length > 0 && <p className="text-xs text-ink-300 truncate">{g.materias.join(', ')}</p>}
                         </div>
                       </button>
                     )
@@ -388,28 +337,43 @@ export default function CreateAssignment() {
                 </div>
               )}
 
-              {/* Materia inferida */}
-              {inferredMateria && gradosParaFiltrar.length > 0 && (
+              {/* Materia+grado detectados */}
+              {inferredGrado && materiaFinal && (
                 <div className="mt-3 flex items-center gap-2 text-sm font-body text-ink-600 bg-sepia-100 px-3 py-2 rounded border border-parchment-200">
                   <BookOpen className="w-4 h-4 text-ink-400 flex-shrink-0" />
-                  <span>
-                    Materia: <strong>{inferredMateria}</strong>
-                    {' · '}
-                    {gradosParaFiltrar.length === 3 ? 'Todos los grados' : gradosParaFiltrar.join(', ')}
-                  </span>
+                  <span><strong>{materiaFinal}</strong> · <strong>{inferredGrado}</strong></span>
+                </div>
+              )}
+
+              {/* Selector de materia cuando hay varias */}
+              {necesitaElegirMateria && inferredGrado && (
+                <div className="mt-3">
+                  <label className="label-style">¿Para qué materia es esta actividad? *</label>
+                  <div className="flex flex-wrap gap-2">
+                    {materiasUnicas.map(m => (
+                      <button key={m} onClick={() => setSelectedMateria(m)}
+                        className={`px-3 py-1.5 rounded border text-sm font-body transition-all ${
+                          selectedMateria === m
+                            ? 'border-green-600 bg-green-700/10 text-green-800 font-medium'
+                            : 'border-parchment-300 bg-white text-ink-600 hover:border-gold-400'
+                        }`}
+                      >{m}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Aviso distintos grados */}
+              {gradosUnicos.length > 1 && (
+                <div className="mt-3 p-3 bg-gold-400/10 border border-gold-400/30 rounded text-sm font-body text-ink-600">
+                  ⚠️ Grupos de distintos grados ({gradosUnicos.join(', ')}). No se podrá vincular un tema del libro.
                 </div>
               )}
             </div>
 
-            {/* Fecha límite */}
             <div>
               <label className="label-style">Fecha límite (opcional)</label>
-              <input
-                type="datetime-local"
-                value={dueDate}
-                onChange={e => setDueDate(e.target.value)}
-                className="input-style w-full"
-              />
+              <input type="datetime-local" value={dueDate} onChange={e => setDueDate(e.target.value)} className="input-style w-full" />
             </div>
           </div>
         </div>
@@ -421,62 +385,77 @@ export default function CreateAssignment() {
             Tema del libro de texto
           </h2>
 
-          {!inferredMateria ? (
+          {!canShowTemas ? (
             <p className="text-sm font-body text-ink-400">
               {selectedGroupIds.length === 0
-                ? 'Selecciona al menos un grupo para ver los temas disponibles.'
-                : 'Los grupos seleccionados tienen distintas materias. No se puede vincular un tema automáticamente.'}
-            </p>
-          ) : gradosParaFiltrar.length === 0 ? (
-            <p className="text-sm font-body text-ink-400">
-              Los grupos seleccionados no tienen grado configurado.
+                ? 'Selecciona al menos un grupo.'
+                : gradosUnicos.length > 1
+                ? 'Selecciona grupos del mismo grado para vincular un tema.'
+                : necesitaElegirMateria && !selectedMateria
+                ? 'Elige la materia arriba para ver los temas disponibles.'
+                : 'Los grupos no tienen materia o grado configurado.'}
             </p>
           ) : loadingTemas ? (
             <div className="flex items-center gap-2 text-sm text-ink-500 font-body">
               <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-              Cargando temas de {inferredMateria}…
+              Cargando temas de {materiaFinal}…
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Tema seleccionado */}
-              {selectedTema && (
-                <div className="p-3 bg-green-700/10 border border-green-700/20 rounded">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-mono text-ink-400 mb-0.5">{selectedTema.grado}</p>
-                      <p className="text-sm font-body font-medium text-green-800">{selectedTema.tema_principal}</p>
-                      {selectedTema.subtema && (
-                        <p className="text-xs text-green-700 mt-0.5">{selectedTema.subtema}</p>
-                      )}
-                      <p className="text-xs text-ink-400 mt-1 font-mono">p. {selectedTema.pagina}</p>
-                    </div>
-                    <button onClick={() => { setSelectedTema(null); setSearchTema('') }} className="text-green-700 hover:text-crimson-500 text-xs font-body flex-shrink-0">✕</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Buscador */}
-              {!selectedTema && (
+              {selectedTema ? (
                 <>
-                  <input
-                    type="text"
-                    value={searchTema}
-                    onChange={e => setSearchTema(e.target.value)}
-                    placeholder={`Buscar tema de ${inferredMateria}…`}
-                    className="input-style w-full"
-                  />
+                  <div className="p-3 bg-green-700/10 border border-green-700/20 rounded">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-body font-medium text-green-800">{selectedTema.tema_principal}</p>
+                        {selectedTema.subtema && <p className="text-xs text-green-700 mt-0.5">{selectedTema.subtema}</p>}
+                        <p className="text-xs text-ink-400 mt-1 font-mono">p. {selectedTema.pagina}</p>
+                      </div>
+                      <button onClick={() => { setSelectedTema(null); setSearchTema('') }}
+                        className="text-green-700 hover:text-crimson-500 text-xs flex-shrink-0">✕</button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {selectedContenido ? (
+                      <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
+                        <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">Contenido NEM</p>
+                        <p className="font-body text-ink-700">
+                          <span className="font-mono text-xs text-ink-400">[{selectedContenido.codigo}]</span> {selectedContenido.nombre}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink-400 font-body bg-sepia-100 px-3 py-2 rounded border border-parchment-200">
+                        📚 Este tema aún no tiene contenido NEM vinculado.
+                      </p>
+                    )}
+                    {selectedAprendizaje ? (
+                      <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
+                        <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">PDA</p>
+                        <p className="font-body text-ink-700">{selectedAprendizaje.descripcion}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-ink-400 font-body bg-sepia-100 px-3 py-2 rounded border border-parchment-200">
+                        📋 Este tema aún no tiene PDA vinculado.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <input type="text" value={searchTema} onChange={e => setSearchTema(e.target.value)}
+                    placeholder={`Buscar tema de ${materiaFinal}…`} className="input-style w-full" />
                   <div className="border border-parchment-200 rounded overflow-hidden max-h-64 overflow-y-auto bg-white">
-                    {filteredTemas.length === 0 ? (
-                      <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados</p>
+                    {temasLibro.length === 0 ? (
+                      <p className="text-center text-ink-400 font-body text-sm py-4">
+                        No hay temas cargados para {materiaFinal} {inferredGrado}.
+                      </p>
+                    ) : filteredTemas.length === 0 ? (
+                      <p className="text-center text-ink-400 font-body text-sm py-4">Sin resultados para "{searchTema}"</p>
                     ) : filteredTemas.map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => setSelectedTema(t)}
+                      <button key={t.id} onClick={() => setSelectedTema(t)}
                         className="w-full text-left px-3 py-2.5 text-sm font-body border-b border-parchment-100 last:border-0 hover:bg-sepia-100 transition-colors"
                       >
-                        {gradosParaFiltrar.length > 1 && (
-                          <p className="text-xs font-mono text-ink-300 mb-0.5">{t.grado}</p>
-                        )}
                         <p className="text-ink-800 font-medium leading-tight">{t.tema_principal}</p>
                         {t.subtema && <p className="text-ink-500 text-xs mt-0.5">{t.subtema}</p>}
                         <p className="text-ink-300 text-xs font-mono mt-0.5">p. {t.pagina}</p>
@@ -484,32 +463,6 @@ export default function CreateAssignment() {
                     ))}
                   </div>
                 </>
-              )}
-
-              {/* NEM y PDA vinculados (solo lectura) */}
-              {selectedTema && (
-                <div className="space-y-2 mt-2">
-                  {selectedContenido ? (
-                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
-                      <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">Contenido NEM</p>
-                      <p className="font-body text-ink-700"><span className="font-mono text-xs text-ink-400">[{selectedContenido.codigo}]</span> {selectedContenido.nombre}</p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm text-ink-400 font-body">
-                      📚 Este tema aún no tiene contenido NEM vinculado.
-                    </div>
-                  )}
-                  {selectedAprendizaje ? (
-                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm">
-                      <p className="text-xs font-mono text-ink-400 uppercase tracking-wider mb-1">PDA</p>
-                      <p className="font-body text-ink-700">{selectedAprendizaje.descripcion}</p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-sepia-100 border border-parchment-200 rounded text-sm text-ink-400 font-body">
-                      📋 Este tema aún no tiene PDA vinculado.
-                    </div>
-                  )}
-                </div>
               )}
             </div>
           )}
@@ -523,19 +476,13 @@ export default function CreateAssignment() {
           </h2>
           <div>
             <label className="label-style">URL del video *</label>
-            <input
-              value={videoUrl}
-              onChange={e => setVideoUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=…"
-              className="input-style w-full font-mono text-sm"
-            />
-            <p className="text-xs text-ink-400 mt-1.5 font-body">
-              Compatible con YouTube. Usa el formato: https://www.youtube.com/watch?v=ID del video.
-            </p>
+            <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…" className="input-style w-full font-mono text-sm" />
+            <p className="text-xs text-ink-400 mt-1.5 font-body">Compatible con YouTube.</p>
           </div>
         </div>
 
-        {/* ── Bloque 4: Preguntas interactivas ── */}
+        {/* ── Bloque 4: Preguntas ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-lg font-semibold text-ink-800 flex items-center gap-2">
@@ -544,22 +491,16 @@ export default function CreateAssignment() {
               <span className="font-mono text-sm text-ink-400 font-normal">({questions.length})</span>
             </h2>
             <button onClick={addQuestion} className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body">
-              <Plus className="w-3.5 h-3.5" />
-              Agregar pregunta
+              <Plus className="w-3.5 h-3.5" /> Agregar pregunta
             </button>
           </div>
           <div className="space-y-3">
             {questions.map((q, idx) => (
-              <QuestionEditor
-                key={idx}
-                q={q}
-                idx={idx}
-                isExpanded={expandedQ === idx}
+              <QuestionEditor key={idx} q={q} idx={idx} isExpanded={expandedQ === idx}
                 onToggle={() => setExpandedQ(expandedQ === idx ? null : idx)}
                 onUpdate={(patch) => updateQuestion(idx, patch)}
                 onUpdateOption={(optId, text) => updateOption(idx, optId, text)}
-                onRemove={() => removeQuestion(idx)}
-              />
+                onRemove={() => removeQuestion(idx)} />
             ))}
           </div>
           {questions.length === 0 && (
@@ -574,19 +515,13 @@ export default function CreateAssignment() {
           <button onClick={() => navigate('/teacher/assignments')} className="px-5 py-2.5 border border-parchment-300 text-ink-700 rounded-sm font-body hover:bg-sepia-100 transition-colors">
             Cancelar
           </button>
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-ink-700 text-parchment-100 rounded-sm font-body font-medium hover:bg-ink-800 disabled:opacity-40 transition-colors shadow-manuscript"
-          >
+          <button onClick={() => handleSave(false)} disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-ink-700 text-parchment-100 rounded-sm font-body font-medium hover:bg-ink-800 disabled:opacity-40 transition-colors shadow-manuscript">
             <Save className="w-4 h-4" />
             {saving ? 'Guardando…' : 'Guardar borrador'}
           </button>
-          <button
-            onClick={() => handleSave(true)}
-            disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-crimson-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors shadow-manuscript"
-          >
+          <button onClick={() => handleSave(true)} disabled={saving}
+            className="flex items-center gap-2 px-5 py-2.5 bg-crimson-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors shadow-manuscript">
             <Eye className="w-4 h-4" />
             {saving ? 'Guardando…' : 'Publicar'}
           </button>
@@ -597,7 +532,6 @@ export default function CreateAssignment() {
         .label-style { display: block; font-size: 0.875rem; font-weight: 500; color: #3d2c14; margin-bottom: 0.375rem; font-family: 'Source Serif 4', serif; }
         .input-style { border: 1px solid #e8d3a9; border-radius: 0.25rem; padding: 0.5rem 0.75rem; font-family: 'Source Serif 4', serif; color: #2d1f0e; background: white; transition: border-color 0.15s; }
         .input-style:focus { outline: none; border-color: #3fad6a; box-shadow: 0 0 0 3px rgba(63,173,106,0.15); }
-        select.input-style { cursor: pointer; }
       `}</style>
     </div>
   )
@@ -624,8 +558,7 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
             {typeLabels[q.question_type]}
           </span>
           <span className="flex items-center gap-1 text-xs text-ink-400 flex-shrink-0">
-            <Clock className="w-3 h-3" />
-            {secondsToTime(q.timestamp_seconds)}
+            <Clock className="w-3 h-3" />{secondsToTime(q.timestamp_seconds)}
           </span>
           <p className="text-sm text-ink-700 font-body truncate">
             {q.question_text || <span className="text-ink-300 italic">Sin texto…</span>}
@@ -642,11 +575,9 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="label-style">Tipo</label>
-              <select
-                value={q.question_type}
+              <select value={q.question_type}
                 onChange={e => onUpdate({ question_type: e.target.value as QuestionType, correct_answer: e.target.value === 'true_false' ? 'true' : 'a' })}
-                className="input-style w-full text-sm"
-              >
+                className="input-style w-full text-sm">
                 <option value="multiple_choice">Opción múltiple</option>
                 <option value="true_false">Verdadero / Falso</option>
                 <option value="open">Pregunta abierta</option>
@@ -654,29 +585,22 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
             </div>
             <div>
               <label className="label-style">Pausa en (mm:ss)</label>
-              <input
-                type="text"
-                value={secondsToTime(q.timestamp_seconds)}
+              <input type="text" value={secondsToTime(q.timestamp_seconds)}
                 onChange={e => onUpdate({ timestamp_seconds: timeToSeconds(e.target.value) })}
-                placeholder="01:30"
-                className="input-style w-full font-mono text-sm"
-              />
+                placeholder="01:30" className="input-style w-full font-mono text-sm" />
             </div>
             <div>
               <label className="label-style">Puntos</label>
-              <input type="number" min={1} max={100} value={q.points} onChange={e => onUpdate({ points: Number(e.target.value) })} className="input-style w-full font-mono text-sm" />
+              <input type="number" min={1} max={100} value={q.points}
+                onChange={e => onUpdate({ points: Number(e.target.value) })}
+                className="input-style w-full font-mono text-sm" />
             </div>
           </div>
 
           <div>
             <label className="label-style">Pregunta</label>
-            <textarea
-              value={q.question_text}
-              onChange={e => onUpdate({ question_text: e.target.value })}
-              rows={2}
-              className="input-style w-full resize-none"
-              placeholder="Escribe la pregunta…"
-            />
+            <textarea value={q.question_text} onChange={e => onUpdate({ question_text: e.target.value })}
+              rows={2} className="input-style w-full resize-none" placeholder="Escribe la pregunta…" />
           </div>
 
           {q.question_type === 'multiple_choice' && (
@@ -684,9 +608,11 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <label className="label-style">Opciones (marca la correcta)</label>
               {q.options.map(opt => (
                 <div key={opt.id} className="flex items-center gap-2">
-                  <input type="radio" name={`correct-${idx}`} checked={q.correct_answer === opt.id} onChange={() => onUpdate({ correct_answer: opt.id })} className="w-4 h-4 accent-gold-500 flex-shrink-0" />
+                  <input type="radio" name={`correct-${idx}`} checked={q.correct_answer === opt.id}
+                    onChange={() => onUpdate({ correct_answer: opt.id })} className="w-4 h-4 accent-gold-500 flex-shrink-0" />
                   <span className="font-mono text-xs text-ink-400 w-4">{opt.id.toUpperCase()})</span>
-                  <input value={opt.text} onChange={e => onUpdateOption(opt.id, e.target.value)} placeholder={`Opción ${opt.id.toUpperCase()}`} className="input-style flex-1 text-sm" />
+                  <input value={opt.text} onChange={e => onUpdateOption(opt.id, e.target.value)}
+                    placeholder={`Opción ${opt.id.toUpperCase()}`} className="input-style flex-1 text-sm" />
                 </div>
               ))}
             </div>
@@ -698,7 +624,8 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
               <div className="flex gap-3">
                 {['true', 'false'].map(val => (
                   <label key={val} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name={`tf-${idx}`} checked={q.correct_answer === val} onChange={() => onUpdate({ correct_answer: val })} className="w-4 h-4 accent-gold-500" />
+                    <input type="radio" name={`tf-${idx}`} checked={q.correct_answer === val}
+                      onChange={() => onUpdate({ correct_answer: val })} className="w-4 h-4 accent-gold-500" />
                     <span className="font-body text-sm text-ink-700">{val === 'true' ? '✓ Verdadero' : '✗ Falso'}</span>
                   </label>
                 ))}
@@ -708,7 +635,7 @@ function QuestionEditor({ q, idx, isExpanded, onToggle, onUpdate, onUpdateOption
 
           {q.question_type === 'open' && (
             <div className="bg-sepia-100 rounded p-3 text-sm font-body text-ink-500 border border-parchment-200">
-              💬 El estudiante escribirá su respuesta. No se califica automáticamente, pero se registra para revisión del docente.
+              💬 El estudiante escribirá su respuesta. No se califica automáticamente.
             </div>
           )}
         </div>
