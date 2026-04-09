@@ -388,6 +388,8 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin markdown:
       setGeneratingAI(false)
     }
   }
+
+  const filteredTemas = temasLibro.filter(t => {
     const q = normalize(searchTema)
     if (!q) return true
     return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
