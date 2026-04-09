@@ -56,7 +56,11 @@ serve(async (req) => {
       { headers: { 'x-api-key': apiKey } }
     )
 
+    console.log('Supadata status:', supadataRes.status, 'videoId:', videoId)
+
     if (!supadataRes.ok) {
+      const errBody = await supadataRes.text()
+      console.log('Supadata error body:', errBody)
       // Intentar sin especificar idioma (algunos videos solo tienen en inglés)
       const supadataResEn = await fetch(
         `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}`,

@@ -275,16 +275,27 @@ export default function CreateAssignment() {
 
     try {
       // 1. Obtener transcripción via Edge Function
-      const transcriptRes = await supabase.functions.invoke('get-transcript', {
-        body: { url: videoUrl.trim() }
-      })
+      const { data: { session } } = await supabase.auth.getSession()
+      const transcriptRes = await fetch(
+        'https://vioylqkituyzknwfpbhu.supabase.co/functions/v1/get-transcript',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ url: videoUrl.trim() })
+        }
+      )
+      const transcriptData = await transcriptRes.json()
 
-      if (transcriptRes.error || !transcriptRes.data?.transcript) {
-        throw new Error(transcriptRes.data?.error || 'No se pudo obtener la transcripción del video. Verifica que tenga subtítulos activados.')
+      if (!transcriptRes.ok || !transcriptData.transcript) {
+        throw new Error(transcriptData.error || 'No se pudo obtener la transcripción del video. Verifica que tenga subtítulos activados.')
       }
 
-      const transcript: string = transcriptRes.data.transcript
-      const segments: { text: string; start: number }[] = transcriptRes.data.segments ?? []
+      const transcript: string = transcriptData.transcript
+      const segments: { text: string; start: number }[] = transcriptData.segments ?? []
 
       // 2. Construir contexto pedagógico
       const contexto = [
@@ -388,8 +399,6 @@ Responde ÚNICAMENTE con un JSON válido, sin texto adicional, sin markdown:
       setGeneratingAI(false)
     }
   }
-
-  const filteredTemas = temasLibro.filter(t => {
     const q = normalize(searchTema)
     if (!q) return true
     return normalize(t.tema_principal || '').includes(q) || normalize(t.subtema || '').includes(q)
