@@ -113,6 +113,7 @@ export default function TeacherReports() {
     if (updatedSess) {
       setSelectedSession((prev: any) => ({ ...prev, score: Math.round(updatedSess.score) }))
     }
+    await load()
     setSavingScore(null)
   }
 
