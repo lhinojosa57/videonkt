@@ -173,14 +173,14 @@ export default function StudentDashboard() {
               >
                 <div className="flex items-start gap-4">
                   <div className={`w-12 h-12 rounded flex items-center justify-center flex-shrink-0 ${
-                    isCompleted ? 'bg-green-700/10' : isInProgress ? 'bg-tesla-green/20' : 'bg-crimson-500/10'
+                    isCompleted ? 'bg-green-700/10' : isInProgress ? 'bg-gold-400/20' : 'bg-crimson-500/10'
                   }`}>
                     {isCompleted ? (
                       <CheckCircle className="w-6 h-6 text-green-700" />
                     ) : isInProgress ? (
                       <Clock className="w-6 h-6 text-gold-600" />
                     ) : (
-                      <PlayCircle className="w-6 h-6 text-gray-500" />
+                      <PlayCircle className="w-6 h-6 text-crimson-500" />
                     )}
                   </div>
 
@@ -225,7 +225,7 @@ export default function StudentDashboard() {
                 <div className="mt-3">
                   <span className={`text-xs font-mono px-2 py-0.5 rounded ${
                     isCompleted ? 'bg-green-700/10 text-green-700' :
-                    isInProgress ? 'bg-tesla-green/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
+                    isInProgress ? 'bg-gold/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
                   }`}>
                     {isCompleted ? '✓ Completada' : isInProgress ? '⏱ En progreso' : '▶ Sin iniciar'}
                   </span>
