@@ -521,6 +521,7 @@ async function handleAllowRetry() {
                 <p className="text-ink-400 font-body text-center py-8">Sin respuestas registradas.</p>
               ) : (
                 sessionAnswers.map((answer: any) => {
+                  console.log(answer.question?.question_text?.substring(0,30), '| is_correct:', answer.is_correct, typeof answer.is_correct)
                   const q = answer.question
                   const isOpen = q?.question_type === 'open'
                   return (
