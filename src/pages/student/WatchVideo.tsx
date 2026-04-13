@@ -490,8 +490,8 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
         )}
 
         {showContinue && !isTimeUp && (
-          <div className="rounded p-4 mb-4 border bg-green-700/10 border-green-700/20">
-            <p className="font-body font-semibold text-green-700">✓ Respuesta registrada</p>
+          <div className="rounded p-4 mb-4 border bg-sepia-100 border-parchment-300">
+            <p className="font-body font-semibold text-ink-600">Respuesta registrada</p>
           </div>
         )}
 
