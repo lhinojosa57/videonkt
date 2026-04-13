@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -36,54 +36,55 @@ export default function TeacherReports() {
   const [loadingMatrix, setLoadingMatrix] = useState(false)
   const [selectedMatrixAssignment, setSelectedMatrixAssignment] = useState('')
 
-  useEffect(() => {
-    if (!profile?.id) return
-    async function load() {
-      const { data: myAssignments } = await supabase
-        .from('video_assignments')
-        .select('id, title')
-        .eq('teacher_id', profile!.id)
-        .order('created_at', { ascending: false })
+  const load = useCallback(async () => {
+  const { data: myAssignments } = await supabase
+    .from('video_assignments')
+    .select('id, title')
+    .eq('teacher_id', profile!.id)
+    .order('created_at', { ascending: false })
 
-      const assignmentIds = (myAssignments ?? []).map((a: any) => a.id)
-      setAssignments(myAssignments ?? [])
+  const assignmentIds = (myAssignments ?? []).map((a: any) => a.id)
+  setAssignments(myAssignments ?? [])
 
-      if (assignmentIds.length === 0) {
-        setRows([])
-        setFiltered([])
-        setLoading(false)
-        return
-      }
+  if (assignmentIds.length === 0) {
+    setRows([])
+    setFiltered([])
+    setLoading(false)
+    return
+  }
 
-      const { data: sessions } = await supabase
-        .from('student_sessions')
-        .select(`
-          id, started_at, completed_at, duration_seconds, score, is_completed,
-          profile:profiles!student_id(full_name, email),
-          assignment:video_assignments!assignment_id(title, topic, group:groups(name))
-        `)
-        .in('assignment_id', assignmentIds)
-        .order('started_at', { ascending: false })
+  const { data: sessions } = await supabase
+    .from('student_sessions')
+    .select(`
+      id, started_at, completed_at, duration_seconds, score, is_completed,
+      profile:profiles!student_id(full_name, email),
+      assignment:video_assignments!assignment_id(title, topic, group:groups(name))
+    `)
+    .in('assignment_id', assignmentIds)
+    .order('started_at', { ascending: false })
 
-      const mapped: ReportRow[] = (sessions ?? []).map((s: any) => ({
-        student_name: s.profile?.full_name ?? 'Desconocido',
-        student_email: s.profile?.email ?? '',
-        assignment_title: s.assignment?.title ?? '',
-        topic: s.assignment?.topic ?? '',
-        group_name: s.assignment?.group?.name ?? '',
-        started_at: s.started_at,
-        completed_at: s.completed_at,
-        duration_seconds: s.duration_seconds ?? 0,
-        score: Math.round(s.score ?? 0),
-        is_completed: s.is_completed,
-        session_id: s.id,
-      }))
-      setRows(mapped)
-      setFiltered(mapped)
-      setLoading(false)
-    }
-    load()
-  }, [profile?.id])
+  const mapped: ReportRow[] = (sessions ?? []).map((s: any) => ({
+    student_name: s.profile?.full_name ?? 'Desconocido',
+    student_email: s.profile?.email ?? '',
+    assignment_title: s.assignment?.title ?? '',
+    topic: s.assignment?.topic ?? '',
+    group_name: s.assignment?.group?.name ?? '',
+    started_at: s.started_at,
+    completed_at: s.completed_at,
+    duration_seconds: s.duration_seconds ?? 0,
+    score: Math.round(s.score ?? 0),
+    is_completed: s.is_completed,
+    session_id: s.id,
+  }))
+  setRows(mapped)
+  setFiltered(mapped)
+  setLoading(false)
+}, [profile?.id])
+
+useEffect(() => {
+  if (!profile?.id) return
+  load()
+}, [profile?.id, load])
 
   async function loadSessionAnswers(sessionId: string) {
     setLoadingAnswers(true)
