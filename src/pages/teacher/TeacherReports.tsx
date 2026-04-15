@@ -104,6 +104,7 @@ useEffect(() => {
       .from('student_answers')
       .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
       .eq('id', answerId)
+      console.log('update ejecutado, answerId:', answerId, 'pointsEarned:', pointsEarned)
     const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
     if (sessionId) await loadSessionAnswers(sessionId)
     await new Promise(resolve => setTimeout(resolve, 2000))
