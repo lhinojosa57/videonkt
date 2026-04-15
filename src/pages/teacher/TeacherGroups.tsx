@@ -28,12 +28,12 @@ const CAMPOS_FORMATIVOS = [
     materias: ['Geografía', 'Historia', 'Formación Cívica y Ética'],
   },
   {
-    id: '7cbb64da-4f46-4928-9848-fb68e31e67f8',
+    id: '7cbb64da-4f46-4928-9840-fb68e31e67f8',
     nombre: 'De lo Humano y lo Comunitario',
     materias: ['Tecnología', 'Educación Física', 'Tutoría y Educación Socioemocional'],
   },
   {
-    id: '1ab5aaed-340c-4beb-a848-2f9e93c99c40',
+    id: '1ab5aaed-340c-4beb-a840-2f9e93c99c40',
     nombre: 'Lenguajes',
     materias: ['Español', 'Lengua Indígena como Lengua Materna', 'Lengua Indígena como Segunda Lengua', 'Inglés', 'Artes'],
   },
