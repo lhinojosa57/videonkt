@@ -380,7 +380,7 @@ async function handleAllowRetry() {
                         </td>
                         <td className="px-4 py-3 text-ink-600 whitespace-nowrap">{r.group_name}</td>
                         <td className="px-4 py-3 text-ink-500 font-mono text-xs whitespace-nowrap">
-                          {new Date(r.started_at).toLocaleDateString('es-MX')}
+                          {new Date(r.started_at).toLocaleString('es-MX')}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-ink-600 whitespace-nowrap">{formatDuration(r.duration_seconds)}</td>
                         <td className="px-4 py-3">
