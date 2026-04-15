@@ -225,7 +225,7 @@ export default function StudentDashboard() {
                 <div className="mt-3">
                   <span className={`text-xs font-mono px-2 py-0.5 rounded ${
                     isCompleted ? 'bg-green-700/10 text-green-700' :
-                    isInProgress ? 'bg-gold/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
+                    isInProgress ? 'bg-gold-400/20 text-gold-600' : 'bg-crimson-500/10 text-crimson-500'
                   }`}>
                     {isCompleted ? '✓ Completada' : isInProgress ? '⏱ En progreso' : '▶ Sin iniciar'}
                   </span>
