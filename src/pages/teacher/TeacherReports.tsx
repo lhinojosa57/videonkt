@@ -112,6 +112,7 @@ useEffect(() => {
       .select('score')
       .eq('id', sessionId)
       .single()
+      console.log('sessionId:', sessionId, '| score recibido:', updatedSess?.score)
     if (updatedSess) {
       setSelectedSession((prev: any) => ({ ...prev, score: Math.round(updatedSess.score) }))
     }
