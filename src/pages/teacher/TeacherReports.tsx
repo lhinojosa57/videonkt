@@ -100,7 +100,7 @@ useEffect(() => {
   async function gradeOpenAnswer(answerId: string, questionPoints: number, multiplier: number) {
     setSavingScore(answerId)
     const pointsEarned = Math.round(questionPoints * multiplier)
-    const { error } = await supabase
+    await supabase
       .from('student_answers')
       .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
       .eq('id', answerId)
