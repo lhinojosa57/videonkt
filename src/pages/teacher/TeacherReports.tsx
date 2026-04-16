@@ -545,7 +545,10 @@ async function handleAllowRetry() {
                           {[{ label: 'Completa', value: 1 }, { label: 'Parcial', value: 0.5 }, { label: 'Incorrecta', value: 0 }].map(opt => (
                             <button
                               key={opt.value}
-                              onClick={() => gradeOpenAnswer(answer.id, q.points, opt.value)}
+                              onClick={() => {
+                                console.log('q.points:', q.points, 'multiplier:', opt.value)
+                                gradeOpenAnswer(answer.id, q.points, opt.value)
+                              }}
                               disabled={savingScore === answer.id}
                               className={`text-xs px-3 py-1.5 rounded font-body font-medium transition-colors ${answer.points_earned === Math.round(q.points * opt.value) ? 'bg-crimson-500 text-parchment-50' : 'bg-sepia-100 text-ink-600 hover:bg-sepia-200'}`}
                             >
