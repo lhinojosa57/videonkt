@@ -107,7 +107,7 @@ useEffect(() => {
       console.log('update error:', error, 'pointsEarned:', pointsEarned)
     const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
     if (sessionId) await loadSessionAnswers(sessionId)
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    await new Promise(resolve => setTimeout(resolve, 3000))
     const { data: updatedSess } = await supabase
       .from('student_sessions')
       .select('score')
