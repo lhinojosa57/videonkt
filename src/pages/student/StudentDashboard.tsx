@@ -53,6 +53,7 @@ export default function StudentDashboard() {
       .select('*')
       .in('id', assignmentIds)
       .eq('is_published', true)
+      .or('publish_at.is.null,publish_at.lte.' + new Date().toISOString())
       .order('created_at', { ascending: false })
 
     // 4. Para cada actividad, buscar la sesión del estudiante

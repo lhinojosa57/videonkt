@@ -64,6 +64,7 @@ export default function CreateAssignment() {
   const [title, setTitle] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [publishAt, setPublishAt] = useState('')
   const [isPublished, setIsPublished] = useState(false)
 
   const [groups, setGroups] = useState<any[]>([])
@@ -162,6 +163,7 @@ export default function CreateAssignment() {
           setTitle(data.title ?? '')
           setVideoUrl(data.video_url ?? '')
           setDueDate(data.due_date ? data.due_date.substring(0, 16) : '')
+          setPublishAt(data.publish_at ? data.publish_at.substring(0, 16) : '')
           setIsPublished(data.is_published ?? false)
 
           if (data.tema_libro_id) {
@@ -208,6 +210,7 @@ export default function CreateAssignment() {
       topic: title.trim(),
       video_url: videoUrl.trim(),
       due_date: dueDate || null,
+      publish_at: publishAt || null,
       is_published: publish || isPublished,
       tema_libro_id: selectedTema?.id ?? null,
       nem_contenido_id: selectedContenido?.id ?? null,
@@ -431,6 +434,11 @@ export default function CreateAssignment() {
                   ⚠️ Grupos de distintos grados ({gradosUnicos.join(', ')}). No se podrá vincular un tema del libro.
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="label-style">Fecha de publicación (opcional)</label>
+              <input type="datetime-local" value={publishAt} onChange={e => setPublishAt(e.target.value)} className="input-style w-full" />
             </div>
 
             <div>
