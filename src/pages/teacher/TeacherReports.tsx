@@ -104,8 +104,7 @@ useEffect(() => {
       .from('student_answers')
       .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
       .eq('id', answerId)
-      console.log('update error:', error, 'pointsEarned:', pointsEarned)
-    const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
+      const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
     if (sessionId) await loadSessionAnswers(sessionId)
     const { data: allAnswers } = await supabase
       .from('student_answers')
@@ -525,7 +524,6 @@ async function handleAllowRetry() {
                 <p className="text-ink-400 font-body text-center py-8">Sin respuestas registradas.</p>
               ) : (
                 sessionAnswers.map((answer: any) => {
-                  console.log(answer.question?.question_text?.substring(0,30), '| is_correct:', answer.is_correct, typeof answer.is_correct)
                   const q = answer.question
                   const isOpen = q?.question_type === 'open'
                   return (
@@ -547,7 +545,6 @@ async function handleAllowRetry() {
                             <button
                               key={opt.value}
                               onClick={() => {
-                                console.log('q.points:', q.points, 'multiplier:', opt.value)
                                 gradeOpenAnswer(answer.id, q.points, opt.value)
                               }}
                               disabled={savingScore === answer.id}
