@@ -100,11 +100,11 @@ useEffect(() => {
   async function gradeOpenAnswer(answerId: string, questionPoints: number, multiplier: number) {
     setSavingScore(answerId)
     const pointsEarned = Math.round(questionPoints * multiplier)
-    await supabase
+    const { error } = await supabase
       .from('student_answers')
       .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
       .eq('id', answerId)
-      console.log('update ejecutado, answerId:', answerId, 'pointsEarned:', pointsEarned)
+      console.log('update error:', error, 'pointsEarned:', pointsEarned)
     const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
     if (sessionId) await loadSessionAnswers(sessionId)
     await new Promise(resolve => setTimeout(resolve, 2000))
