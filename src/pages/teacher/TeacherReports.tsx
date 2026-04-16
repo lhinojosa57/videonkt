@@ -88,7 +88,7 @@ useEffect(() => {
 
   async function loadSessionAnswers(sessionId: string) {
     setLoadingAnswers(true)
-    await supabase
+    const { data } = await supabase
       .from('student_answers')
       .select('*, question:questions(*)')
       .eq('session_id', sessionId)
