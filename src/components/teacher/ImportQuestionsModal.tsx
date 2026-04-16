@@ -68,44 +68,12 @@ export default function ImportQuestionsModal({ onImport, onClose, currentCount }
     setError('')
     setStep('parsing')
 
-    const systemPrompt = `Eres un parser de preguntas para una plataforma educativa de video interactivo.
-Tu tarea: analizar el texto pegado por un docente y extraer preguntas estructuradas.
-
-Responde ÚNICAMENTE con un JSON válido, sin markdown, sin backticks, sin texto adicional.
-
-Formato de salida (array de objetos):
-[
-  {
-    "question_text": "¿Texto de la pregunta?",
-    "question_type": "multiple_choice" | "true_false" | "open",
-    "options": [{"id":"a","text":"..."},{"id":"b","text":"..."},{"id":"c","text":"..."},{"id":"d","text":"..."}],
-    "correct_answer": "a" | "b" | "c" | "d" | "true" | "false" | null,
-    "points": 10,
-    "timestamp_seconds": 60
-  }
-]
-
-Reglas:
-- Si el texto incluye [mm:ss] o mm:ss al inicio de la pregunta, úsalo como timestamp_seconds
-- Si no hay timestamp, distribuye las preguntas equitativamente (primera en segundo 60, siguientes en incrementos de 120s)
-- Si hay 4 opciones → multiple_choice
-- Si solo hay 2 opciones que sean Verdadero/Falso, Sí/No, Cierto/Falso → true_false, correct_answer = "true" o "false"
-- Si no hay opciones → open, correct_answer = null, options = []
-- La respuesta correcta puede venir marcada con: *, →, (correcta), negrita, o "Respuesta: X" al final
-- Si no se detecta respuesta correcta → correct_answer = "a" para multiple_choice
-- points siempre = 10
-- Normaliza el texto: quita numeración del inicio (1., 2., a), b), etc.)
-- Para multiple_choice, options SIEMPRE debe tener exactamente los elementos con texto no vacío`
-
     try {
       const response = await fetch('/api/parse-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: rawText }),
       })
-
-      const data = await response.json()
-      const text = data.content?.map((c: any) => c.text || '').join('') ?? ''
 
       // Strip any accidental markdown fences
       const clean = (await response.text()).replace(/```json|```/g, '').trim()
