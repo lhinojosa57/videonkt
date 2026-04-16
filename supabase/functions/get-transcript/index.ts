@@ -116,8 +116,9 @@ ${transcriptForClaude}
 
 Genera 4 preguntas interactivas basadas en el contenido REAL del video:
 - 2 opcion multiple, 1 verdadero/falso, 1 pregunta abierta
-- Ancladas a timestamps reales de la transcripcion
+- El timestamp de cada pregunta debe ser POSTERIOR al momento en que ese contenido aparece en la transcripcion. La pregunta debe aparecer DESPUES de que el video explico el tema, nunca antes.
 - En espanol claro para secundaria
+- Las preguntas deben ser cortas y directas, maximo 15 palabras, para que el estudiante pueda leer y contestar en menos de 30 segundos
 
 Responde SOLO con JSON valido, sin markdown:
 {"preguntas":[{"tipo":"multiple_choice","timestamp_segundos":45,"texto":"...","opciones":[{"id":"a","texto":"..."},{"id":"b","texto":"..."},{"id":"c","texto":"..."},{"id":"d","texto":"..."}],"respuesta_correcta":"a","puntos":10},{"tipo":"multiple_choice","timestamp_segundos":120,"texto":"...","opciones":[{"id":"a","texto":"..."},{"id":"b","texto":"..."},{"id":"c","texto":"..."},{"id":"d","texto":"..."}],"respuesta_correcta":"b","puntos":10},{"tipo":"true_false","timestamp_segundos":180,"texto":"...","respuesta_correcta":"true","puntos":10},{"tipo":"open","timestamp_segundos":240,"texto":"...","puntos":20}]}`
