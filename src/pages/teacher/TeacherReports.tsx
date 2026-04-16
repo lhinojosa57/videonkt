@@ -107,16 +107,17 @@ useEffect(() => {
       console.log('update error:', error, 'pointsEarned:', pointsEarned)
     const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
     if (sessionId) await loadSessionAnswers(sessionId)
-    await new Promise(resolve => setTimeout(resolve, 3000))
-    const { data: updatedSess } = await supabase
-      .from('student_sessions')
-      .select('score')
-      .eq('id', sessionId)
-      .single()
-      console.log('sessionId:', sessionId, '| score recibido:', updatedSess?.score)
-    if (updatedSess) {
-      setSelectedSession((prev: any) => ({ ...prev, score: Math.round(updatedSess.score) }))
-    }
+    const { data: allAnswers } = await supabase
+      .from('student_answers')
+      .select('points_earned, question:questions(points)')
+      .eq('session_id', sessionId)
+
+    const totalPoints = (allAnswers ?? []).reduce((sum: number, a: any) => sum + (a.question?.points ?? 0), 0)
+    const earnedPoints = (allAnswers ?? []).reduce((sum: number, a: any) => sum + (a.points_earned ?? 0), 0)
+    const newScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
+
+    await supabase.from('student_sessions').update({ score: newScore }).eq('id', sessionId)
+    setSelectedSession((prev: any) => ({ ...prev, score: newScore }))
     await load()
     setSavingScore(null)
   }
