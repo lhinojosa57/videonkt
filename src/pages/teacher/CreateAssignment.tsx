@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
 import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen, Sparkles, Loader } from 'lucide-react'
+import ImportQuestionsModal from '../../components/teacher/ImportQuestionsModal'
+import type { ParsedQuestion } from '../../components/teacher/ImportQuestionsModal'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -59,6 +61,7 @@ export default function CreateAssignment() {
   const isEdit = !!editId
 
   const [saving, setSaving] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [expandedQ, setExpandedQ] = useState<number | null>(0)
 
   const [title, setTitle] = useState('')
@@ -258,6 +261,17 @@ export default function CreateAssignment() {
 
   const toggleGroup = (id: string) =>
     setSelectedGroupIds(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
+
+  const handleImport = (imported: ParsedQuestion[]) => {
+    setQuestions(prev => [
+      ...prev.filter(q => q.question_text.trim()),
+      ...imported.map((q, i) => ({
+        ...q,
+        order_index: prev.filter(p => p.question_text.trim()).length + i,
+      })),
+    ])
+    setExpandedQ(null)
+  }
 
   const addQuestion = () => { setQuestions(prev => [...prev, newQuestion(prev.length)]); setExpandedQ(questions.length) }
   const removeQuestion = (idx: number) => { setQuestions(prev => prev.filter((_, i) => i !== idx)); setExpandedQ(null) }
@@ -574,9 +588,24 @@ export default function CreateAssignment() {
                   }
                 </button>
               )}
-              <button onClick={addQuestion} className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body">
-                <Plus className="w-3.5 h-3.5" /> Agregar pregunta
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowImport(true)}
+                  className="flex items-center gap-1.5 text-sm bg-gold-400/20 border border-gold-400/40 text-gold-700 px-3 py-1.5 rounded hover:bg-gold-400/30 transition-colors font-body"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  Pegar desde doc
+                </button>
+                <button
+                  onClick={addQuestion}
+                  className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Agregar pregunta
+                </button>
+              </div>
             </div>
           </div>
           {aiError && (
@@ -632,6 +661,13 @@ export default function CreateAssignment() {
         .input-style { border: 1px solid #e8d3a9; border-radius: 0.25rem; padding: 0.5rem 0.75rem; font-family: 'Source Serif 4', serif; color: #2d1f0e; background: white; transition: border-color 0.15s; }
         .input-style:focus { outline: none; border-color: #3fad6a; box-shadow: 0 0 0 3px rgba(63,173,106,0.15); }
       `}</style>
+      {showImport && (
+        <ImportQuestionsModal
+          onImport={handleImport}
+          onClose={() => setShowImport(false)}
+          currentCount={questions.filter(q => q.question_text.trim()).length}
+        />
+      )}
     </div>
   )
 }
