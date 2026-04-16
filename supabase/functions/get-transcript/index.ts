@@ -116,7 +116,7 @@ ${transcriptForClaude}
 
 Genera 4 preguntas interactivas basadas en el contenido REAL del video:
 - 2 opcion multiple, 1 verdadero/falso, 1 pregunta abierta
-- El timestamp de cada pregunta debe ser POSTERIOR al momento en que ese contenido aparece en la transcripcion. La pregunta debe aparecer DESPUES de que el video explico el tema, nunca antes.
+- El timestamp de cada pregunta debe ser cuando el video YA TERMINO de explicar ese tema, no cuando empieza. Busca el timestamp del ultimo segmento relacionado con ese contenido y agrega entre 5 y 10 segundos adicionales.
 - En espanol claro para secundaria
 - Las preguntas deben ser cortas y directas, maximo 15 palabras, para que el estudiante pueda leer y contestar en menos de 30 segundos
 
