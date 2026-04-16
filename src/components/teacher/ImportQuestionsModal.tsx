@@ -98,22 +98,17 @@ Reglas:
 - Para multiple_choice, options SIEMPRE debe tener exactamente los elementos con texto no vacío`
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/parse-questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: rawText }],
-        }),
+        body: JSON.stringify({ text: rawText }),
       })
 
       const data = await response.json()
       const text = data.content?.map((c: any) => c.text || '').join('') ?? ''
 
       // Strip any accidental markdown fences
-      const clean = text.replace(/```json|```/g, '').trim()
+      const clean = (await response.text()).replace(/```json|```/g, '').trim()
       const questions: any[] = JSON.parse(clean)
 
       if (!Array.isArray(questions) || questions.length === 0) {
