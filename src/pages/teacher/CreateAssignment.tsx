@@ -305,7 +305,7 @@ export default function CreateAssignment() {
 
       // Convertir al formato QuestionForm
       const nuevas: QuestionForm[] = data.preguntas.map((p: any, i: number) => ({
-        timestamp_seconds: Math.round(p.timestamp_segundos ?? 60),
+        timestamp_seconds: Math.round((p.timestamp_segundos ?? 60) + 10),
         question_type: p.tipo as QuestionType,
         question_text: p.texto ?? '',
         options: p.tipo === 'multiple_choice'
