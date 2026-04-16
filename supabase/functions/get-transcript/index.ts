@@ -119,6 +119,7 @@ Genera 4 preguntas interactivas basadas en el contenido REAL del video:
 - El timestamp de cada pregunta debe ser cuando el video YA TERMINO de explicar ese tema, no cuando empieza. Busca el timestamp del ultimo segmento relacionado con ese contenido y agrega entre 5 y 10 segundos adicionales.
 - En espanol claro para secundaria
 - Las preguntas deben ser cortas y directas, maximo 15 palabras, para que el estudiante pueda leer y contestar en menos de 30 segundos
+- IMPORTANTE: Las 4 preguntas deben estar ordenadas cronologicamente segun el video. El timestamp de la pregunta 1 debe ser menor que el de la pregunta 2, que debe ser menor que el de la pregunta 3, y asi sucesivamente. NUNCA pongas una pregunta sobre contenido que aparece despues en el video.
 
 Responde SOLO con JSON valido, sin markdown:
 {"preguntas":[{"tipo":"multiple_choice","timestamp_segundos":45,"texto":"...","opciones":[{"id":"a","texto":"..."},{"id":"b","texto":"..."},{"id":"c","texto":"..."},{"id":"d","texto":"..."}],"respuesta_correcta":"a","puntos":10},{"tipo":"multiple_choice","timestamp_segundos":120,"texto":"...","opciones":[{"id":"a","texto":"..."},{"id":"b","texto":"..."},{"id":"c","texto":"..."},{"id":"d","texto":"..."}],"respuesta_correcta":"b","puntos":10},{"tipo":"true_false","timestamp_segundos":180,"texto":"...","respuesta_correcta":"true","puntos":10},{"tipo":"open","timestamp_segundos":240,"texto":"...","puntos":20}]}`
