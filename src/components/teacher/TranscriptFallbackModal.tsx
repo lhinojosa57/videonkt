@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { X, FileText, Sparkles, AlertCircle } from 'lucide-react'
 import { type ParsedQuestion } from './ImportQuestionsModal'
+import { type AIConfig } from './AIConfigModal' 
 
 interface TranscriptFallbackModalProps {
   onImport: (questions: ParsedQuestion[]) => void
   onClose: () => void
   currentCount: number
   contexto?: string
+  config?: AIConfig
 }
 
-export default function TranscriptFallbackModal({ onImport, onClose, currentCount, contexto }: TranscriptFallbackModalProps) {
+export default function TranscriptFallbackModal({ onImport, onClose, currentCount, contexto, config }: TranscriptFallbackModalProps) {
   const [transcript, setTranscript] = useState('')
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState('')
@@ -22,6 +24,7 @@ export default function TranscriptFallbackModal({ onImport, onClose, currentCoun
     try {
       const prompt = [
         contexto ? `Contexto pedagógico:\n${contexto}` : '',
+        config ? `Genera exactamente: ${config.multiple_choice} preguntas de opción múltiple, ${config.true_false} de verdadero/falso, ${config.open} preguntas abiertas.` : '',
         `Transcripción del video:\n${transcript}`,
         `\nGenera preguntas interactivas para este video basándote en la transcripción. Distribuye los timestamps proporcionalmente a lo largo del video.`,
       ].filter(Boolean).join('\n\n')
