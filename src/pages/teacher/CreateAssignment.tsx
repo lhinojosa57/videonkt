@@ -133,7 +133,11 @@ export default function CreateAssignment() {
 
     supabase
       .from('temas_libro')
-      .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
+      .select(`
+        *,
+        contenido:nem_contenidos(id, codigo, nombre),
+        aprendizaje:nem_aprendizajes!temas_libro_aprendizaje_id_fkey(id, descripcion)
+      `)
       .eq('materia', materiaFinal)
       .eq('grado', inferredGrado)
       .order('orden')
