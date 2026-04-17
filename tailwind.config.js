@@ -44,6 +44,11 @@ export default {
           500: '#9b1c1c',
           600: '#7b1414',
         },
+        tesla: {
+          400: '#4abe7a',
+          500: '#2e8b3a',
+          600: '#1f6b2a',
+        },
       },
       boxShadow: {
         manuscript: '0 2px 8px rgba(63, 173, 106, 0.08)',

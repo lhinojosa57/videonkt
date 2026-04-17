@@ -378,7 +378,7 @@ export default function CreateAssignment() {
         {/* ── Bloque 1: Asignación ── */}
         <div className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-6">
           <h2 className="font-display text-lg font-semibold text-ink-800 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 bg-crimson-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
+            <span className="w-6 h-6 bg-tesla-500 text-parchment-50 rounded text-xs flex items-center justify-center font-mono font-bold">1</span>
             Asignación
           </h2>
           <div className="space-y-4">
@@ -659,7 +659,7 @@ export default function CreateAssignment() {
             {saving ? 'Guardando…' : 'Guardar borrador'}
           </button>
           <button onClick={() => handleSave(true)} disabled={saving}
-            className="flex items-center gap-2 px-5 py-2.5 bg-crimson-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-crimson-600 disabled:opacity-40 transition-colors shadow-manuscript">
+            className="flex items-center gap-2 px-5 py-2.5 bg-tesla-500 text-parchment-50 rounded-sm font-body font-medium hover:bg-tesla-600 disabled:opacity-40 transition-colors shadow-manuscript">
             <Eye className="w-4 h-4" />
             {saving ? 'Guardando…' : 'Publicar'}
           </button>

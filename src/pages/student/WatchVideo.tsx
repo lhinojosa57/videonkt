@@ -302,7 +302,7 @@ export default function WatchVideo() {
             </div>
           </>
         )}
-        <button onClick={() => navigate('/student')} className="w-full bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
+        <button onClick={() => navigate('/student')} className="w-full bg-tesla-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-tesla-600 transition-colors">
           Volver al inicio
         </button>
       </div>
@@ -337,7 +337,7 @@ export default function WatchVideo() {
         {videoStarted && activityState === 'playing' && (
           <button
             onClick={handleFinish}
-            className="flex items-center gap-2 bg-crimson-500 text-parchment-50 px-4 py-2 rounded-sm font-body text-sm font-medium hover:bg-crimson-600 transition-colors"
+            className="flex items-center gap-2 bg-tesla-500 text-parchment-50 px-4 py-2 rounded-sm font-body text-sm font-medium hover:bg-tesla-600 transition-colors"
           >
             <CheckCircle className="w-4 h-4" />
             Terminar actividad
@@ -363,7 +363,7 @@ export default function WatchVideo() {
             <div className="absolute inset-0 bg-ink-900 flex items-center justify-center">
               <button
                 onClick={handleStartVideo}
-                className="flex items-center gap-3 bg-crimson-500 text-parchment-50 px-10 py-5 rounded-sm font-display text-2xl font-semibold hover:bg-crimson-600 transition-colors shadow-raised"
+                className="flex items-center gap-3 bg-tesla-500 text-parchment-50 px-10 py-5 rounded-sm font-display text-2xl font-semibold hover:bg-tesla-600 transition-colors shadow-raised"
               >
                 ▶ Iniciar video
               </button>
