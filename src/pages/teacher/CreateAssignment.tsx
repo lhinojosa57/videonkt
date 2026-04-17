@@ -5,6 +5,7 @@ import * as SupabaseTypes from '../../lib/supabase'
 import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen, Sparkles, Loader } from 'lucide-react'
 import ImportQuestionsModal from '../../components/teacher/ImportQuestionsModal'
 import type { ParsedQuestion } from '../../components/teacher/ImportQuestionsModal'
+import TranscriptFallbackModal from '../../components/teacher/TranscriptFallbackModal'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -83,6 +84,7 @@ export default function CreateAssignment() {
   const [selectedAprendizaje, setSelectedAprendizaje] = useState<any | null>(null)
 
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
+  const [showTranscriptFallback, setShowTranscriptFallback] = useState(false)
 
   // ── Analizar grupos seleccionados ──────────────────────────────────────────
   const { gradosUnicos, materiasUnicas, inferredGrado } = useMemo(() => {
@@ -336,9 +338,9 @@ export default function CreateAssignment() {
       setQuestions(prev => [...prev.filter(q => q.question_text.trim()), ...nuevas])
       setExpandedQ(questions.filter(q => q.question_text.trim()).length)
 
-    } catch (err: any) {
-      setAiError(err.message ?? 'Error desconocido')
-    } finally {
+      } catch (err: any) {
+        setShowTranscriptFallback(true)
+      } finally {
       setGeneratingAI(false)
     }
   }
@@ -666,6 +668,14 @@ export default function CreateAssignment() {
           onImport={handleImport}
           onClose={() => setShowImport(false)}
           currentCount={questions.filter(q => q.question_text.trim()).length}
+        />
+      )}
+      {showTranscriptFallback && (
+        <TranscriptFallbackModal
+          onImport={handleImport}
+          onClose={() => setShowTranscriptFallback(false)}
+          currentCount={questions.filter(q => q.question_text.trim()).length}
+          contexto={title ? `Título: ${title}` : ''}
         />
       )}
     </div>
