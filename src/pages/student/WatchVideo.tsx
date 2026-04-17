@@ -84,12 +84,12 @@ export default function WatchVideo() {
       }
       setSession(sess)
 
-      if (sess) {
-      setFinalScore(Math.round(sess.score ?? 0))
-      setSessionCompleted(sess.is_completed) 
-      setCompleted(true)
-      setLoading(false)
-      return
+      if (sess && (sess.is_completed || sess.duration_seconds > 0 || sess.max_video_position > 0)) {
+        setFinalScore(Math.round(sess.score ?? 0))
+        setSessionCompleted(sess.is_completed)
+        setCompleted(true)
+        setLoading(false)
+        return
       }
 
       if (sess?.id) {
