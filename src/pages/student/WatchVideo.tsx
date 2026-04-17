@@ -302,7 +302,7 @@ export default function WatchVideo() {
             </div>
           </>
         )}
-        <button onClick={() => navigate('/student')} className="w-full bg-tesla-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-tesla-600 transition-colors">
+        <button onClick={() => navigate('/student')} className="w-full bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
           Volver al inicio
         </button>
       </div>
