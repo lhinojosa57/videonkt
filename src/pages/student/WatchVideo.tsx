@@ -297,7 +297,7 @@ export default function WatchVideo() {
             <p className="font-body text-ink-600 mb-6">{assignment?.title}</p>
             <div className="bg-sepia-100 rounded p-4 mb-6 border border-parchment-200">
               <p className="text-sm text-ink-600 font-body leading-relaxed">
-                Ya iniciaste esta actividad. Si tuviste un problema técnico, solicita un reintento a tu docente.
+                Esta actividad ya fue iniciada. Recuerda que solo tienes una oportunidad.
               </p>
             </div>
           </>
