@@ -6,6 +6,7 @@ import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronU
 import ImportQuestionsModal from '../../components/teacher/ImportQuestionsModal'
 import type { ParsedQuestion } from '../../components/teacher/ImportQuestionsModal'
 import TranscriptFallbackModal from '../../components/teacher/TranscriptFallbackModal'
+import AIConfigModal, { type AIConfig } from '../../components/teacher/AIConfigModal'
 
 const supabase = SupabaseTypes.supabase
 type QuestionType = SupabaseTypes.QuestionType
@@ -85,6 +86,8 @@ export default function CreateAssignment() {
 
   const [questions, setQuestions] = useState<QuestionForm[]>([newQuestion(0)])
   const [showTranscriptFallback, setShowTranscriptFallback] = useState(false)
+  const [showAIConfig, setShowAIConfig] = useState(false)
+  const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
 
   // ── Analizar grupos seleccionados ──────────────────────────────────────────
   const { gradosUnicos, materiasUnicas, inferredGrado } = useMemo(() => {
@@ -291,7 +294,7 @@ export default function CreateAssignment() {
   const [aiError, setAiError] = useState('')
 
   // ── Generar preguntas con IA ───────────────────────────────────────────────
-  const generateWithAI = async () => {
+  const generateWithAI = async (config: AIConfig) => {
     if (!videoUrl.trim()) return
     setGeneratingAI(true)
     setAiError('')
@@ -305,6 +308,7 @@ export default function CreateAssignment() {
         selectedTema && `Tema del libro: ${selectedTema.tema_principal}`,
         selectedContenido && `Contenido NEM: ${selectedContenido.nombre}`,
         selectedAprendizaje && `PDA: ${selectedAprendizaje.descripcion}`,
+      `Genera exactamente: ${config.multiple_choice} preguntas de opción múltiple, ${config.true_false} de verdadero/falso, ${config.open} preguntas abiertas.`,  
       ].filter(Boolean).join('\n')
 
       // Una sola llamada a la Edge Function — hace transcripción + Claude internamente
@@ -583,7 +587,7 @@ export default function CreateAssignment() {
             <div className="flex items-center gap-2">
               {videoUrl.trim() && (
                 <button
-                  onClick={generateWithAI}
+                  onClick={() => setShowAIConfig(true)}
                   disabled={generatingAI}
                   title="Generar preguntas automáticamente a partir del video"
                   className="flex items-center gap-1.5 text-sm bg-gold-400/20 border border-gold-400/40 text-gold-700 px-3 py-1.5 rounded hover:bg-gold-400/30 disabled:opacity-50 transition-colors font-body font-medium"
@@ -667,6 +671,16 @@ export default function CreateAssignment() {
         .input-style { border: 1px solid #e8d3a9; border-radius: 0.25rem; padding: 0.5rem 0.75rem; font-family: 'Source Serif 4', serif; color: #2d1f0e; background: white; transition: border-color 0.15s; }
         .input-style:focus { outline: none; border-color: #3fad6a; box-shadow: 0 0 0 3px rgba(63,173,106,0.15); }
       `}</style>
+      {showAIConfig && (
+        <AIConfigModal
+          onConfirm={(config) => {
+            setAiConfig(config)
+            setShowAIConfig(false)
+            generateWithAI(config)
+          }}
+          onClose={() => setShowAIConfig(false)}
+        />
+      )}
       {showImport && (
         <ImportQuestionsModal
           onImport={handleImport}
@@ -680,6 +694,7 @@ export default function CreateAssignment() {
           onClose={() => setShowTranscriptFallback(false)}
           currentCount={questions.filter(q => q.question_text.trim()).length}
           contexto={title ? `Título: ${title}` : ''}
+          config={aiConfig ?? undefined}
         />
       )}
     </div>
