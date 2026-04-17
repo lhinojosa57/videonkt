@@ -53,6 +53,7 @@ export default function WatchVideo() {
   const [completed, setCompleted] = useState(false)
   const [finalScore, setFinalScore] = useState(0)
   const [pausedAtSecond, setPausedAtSecond] = useState(0)
+  const [sessionCompleted, setSessionCompleted] = useState(false)
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -83,11 +84,12 @@ export default function WatchVideo() {
       }
       setSession(sess)
 
-      if (sess?.is_completed) {
-        setFinalScore(Math.round(sess.score ?? 0))
-        setCompleted(true)
-        setLoading(false)
-        return
+      if (sess) {
+      setFinalScore(Math.round(sess.score ?? 0))
+      setSessionCompleted(sess.is_completed) 
+      setCompleted(true)
+      setLoading(false)
+      return
       }
 
       if (sess?.id) {
@@ -266,28 +268,47 @@ export default function WatchVideo() {
 
   // ── Completed screen ───────────────────────────────────────────────────────
   if (completed) {
-    return (
-      <div className="min-h-screen bg-sepia-100 flex items-center justify-center p-4">
-        <div className="bg-parchment-50 rounded-sm shadow-raised border border-parchment-200 p-10 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-green-700/10 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="w-9 h-9 text-green-700" />
-          </div>
-          <h2 className="font-display text-2xl font-bold text-ink-900 mb-2">¡Actividad completada!</h2>
-          <p className="font-body text-ink-600 mb-6">{assignment?.title}</p>
-          <div className="bg-sepia-100 rounded p-4 mb-6 border border-parchment-200">
-            <p className="text-xs text-ink-500 font-mono uppercase tracking-wider mb-1">Tu calificación</p>
-            <p className={`font-display text-5xl font-bold ${finalScore >= 80 ? 'text-green-700' : finalScore >= 60 ? 'text-gold-600' : 'text-crimson-500'}`}>
-              {finalScore}
-            </p>
-            <p className="font-mono text-ink-400 text-sm">/100</p>
-          </div>
-          <button onClick={() => navigate('/student')} className="w-full bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
-            Volver al inicio
-          </button>
-        </div>
+  return (
+    <div className="min-h-screen bg-sepia-100 flex items-center justify-center p-4">
+      <div className="bg-parchment-50 rounded-sm shadow-raised border border-parchment-200 p-10 max-w-md w-full text-center">
+        {sessionCompleted ? (
+          <>
+            <div className="w-16 h-16 bg-green-700/10 rounded-full flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="w-9 h-9 text-green-700" />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-ink-900 mb-2">¡Actividad completada!</h2>
+            <p className="font-body text-ink-600 mb-6">{assignment?.title}</p>
+            <div className="bg-sepia-100 rounded p-4 mb-6 border border-parchment-200">
+              <p className="text-xs text-ink-500 font-mono uppercase tracking-wider mb-1">Tu calificación</p>
+              <p className={`font-display text-5xl font-bold ${finalScore >= 80 ? 'text-green-700' : finalScore >= 60 ? 'text-gold-600' : 'text-crimson-500'}`}>
+                {finalScore}
+              </p>
+              <p className="font-mono text-ink-400 text-sm">/100</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="w-16 h-16 bg-crimson-500/10 rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-9 h-9 text-crimson-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-6V7" />
+              </svg>
+            </div>
+            <h2 className="font-display text-2xl font-bold text-ink-900 mb-2">Actividad no disponible</h2>
+            <p className="font-body text-ink-600 mb-6">{assignment?.title}</p>
+            <div className="bg-sepia-100 rounded p-4 mb-6 border border-parchment-200">
+              <p className="text-sm text-ink-600 font-body leading-relaxed">
+                Ya iniciaste esta actividad. Si tuviste un problema técnico, solicita un reintento a tu docente.
+              </p>
+            </div>
+          </>
+        )}
+        <button onClick={() => navigate('/student')} className="w-full bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors">
+          Volver al inicio
+        </button>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   if (loading) {
     return (
