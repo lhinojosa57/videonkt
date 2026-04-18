@@ -477,7 +477,6 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
     <div className="bg-parchment-50 rounded-sm shadow-raised border border-parchment-200 overflow-hidden">
       <div className="bg-crimson-500 px-5 py-3 flex items-center justify-between">
         <span className="text-parchment-100 text-xs font-mono uppercase tracking-wider">⏸ {label}</span>
-        <span className="text-parchment-200 text-xs font-mono">{question.points} pts</span>
       </div>
 
       <div className="p-5" style={{ userSelect: 'none' }}>
