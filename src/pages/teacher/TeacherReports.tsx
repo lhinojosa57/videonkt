@@ -575,7 +575,7 @@ async function handleAllowRetry() {
                 <span className="font-mono text-ink-400">/100</span>
               </div>
               <div className="flex gap-3">
-                {selectedSession.is_completed && (
+                {(selectedSession.is_completed || selectedSession.score === 0) && (
                   <button
                     onClick={handleAllowRetry}
                     className="bg-gold-400 text-ink-900 px-5 py-2.5 rounded-sm font-body font-medium hover:bg-gold-300 transition-colors"
