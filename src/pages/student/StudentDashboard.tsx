@@ -164,7 +164,7 @@ export default function StudentDashboard() {
           {assignments.map((assignment: any) => {
             const session = getSession(assignment)
             const isCompleted = session?.is_completed
-            const isInProgress = session && !isCompleted
+            const isInProgress = session && !isCompleted && (session.duration_seconds > 0 || session.max_video_position > 0)
 
             return (
               <div
