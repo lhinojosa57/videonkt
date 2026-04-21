@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
 import { Plus, Trash2, ArrowLeft, Save, Eye, GripVertical, ChevronDown, ChevronUp, Clock, Check, BookOpen, Sparkles, Loader } from 'lucide-react'
@@ -88,6 +88,10 @@ export default function CreateAssignment() {
   const [showTranscriptFallback, setShowTranscriptFallback] = useState(false)
   const [showAIConfig, setShowAIConfig] = useState(false)
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
+
+  const [searchParams] = useSearchParams()
+  const duplicateId = searchParams.get('duplicate')
+  const isDuplicate = !!duplicateId && !isEdit
 
   // ── Analizar grupos seleccionados ──────────────────────────────────────────
   const { gradosUnicos, materiasUnicas, inferredGrado } = useMemo(() => {
@@ -204,8 +208,47 @@ export default function CreateAssignment() {
             })))
           }
         })
+
+    if (isDuplicate && duplicateId && profile?.id) {
+      supabase.from('video_assignments').select('*').eq('id', duplicateId).single()
+        .then(({ data }) => {
+          if (!data) return
+          setTitle(`Copia de ${data.title}`)
+          setVideoUrl(data.video_url ?? '')
+          setDueDate('')
+          setPublishAt('')
+          setIsPublished(false)
+
+          if (data.tema_libro_id) {
+            supabase.from('temas_libro')
+              .select('*, contenido:nem_contenidos(id, codigo, nombre), aprendizaje:nem_aprendizajes(id, descripcion)')
+              .eq('id', data.tema_libro_id).single()
+              .then(({ data: tema }) => {
+                if (tema) { setSelectedTema(tema); setSelectedMateria(tema.materia ?? '') }
+              })
+          } else if (data.nem_contenido_id) {
+            supabase.from('nem_contenidos').select('*').eq('id', data.nem_contenido_id).single()
+              .then(({ data: contenido }) => { if (contenido) setSelectedContenido(contenido) })
+          }
+        })
+
+      supabase.from('questions').select('*').eq('assignment_id', duplicateId).order('order_index')
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            setQuestions(data.map((q: any) => ({
+              ...q,
+              id: undefined,
+              correct_answer: q.correct_answer ?? '',
+              options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
+            })))
+          }
+        })
+
+        setSelectedGroupIds([])
+      }
+        
     }
-  }, [profile?.id, isEdit, editId])
+  }, [profile?.id, isEdit, editId, isDuplicate, duplicateId])
 
   // ── Guardar ────────────────────────────────────────────────────────────────
   const handleSave = async (publish = false) => {
@@ -368,8 +411,16 @@ export default function CreateAssignment() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="font-display text-3xl font-bold text-ink-900">{isEdit ? 'Editar actividad' : 'Nueva actividad'}</h1>
-          <p className="font-body text-ink-600 mt-0.5">Configura el video y sus preguntas interactivas</p>
+          <h1 className="font-display text-3xl font-bold text-ink-900">
+            {isEdit ? 'Editar actividad' : isDuplicate ? 'Reutilizar actividad' : 'Nueva actividad'}
+          </h1>
+          <p className="font-body text-ink-600 mt-0.5">
+            {isEdit
+              ? 'Modifica el video y sus preguntas'
+              : isDuplicate
+              ? 'El video y las preguntas se copiaron — elige el grupo destino'
+              : 'Configura el video y sus preguntas interactivas'}
+          </p>
         </div>
       </div>
 

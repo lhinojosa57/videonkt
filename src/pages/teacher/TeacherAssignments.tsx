@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
 
@@ -13,6 +13,7 @@ export default function TeacherAssignments() {
   const { profile } = useAuth()
   const [assignments, setAssignments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   async function load() {
     if (!profile) return
@@ -154,6 +155,13 @@ export default function TeacherAssignments() {
                     </button>
                   </td>
                   <td className="px-5 py-4">
+                    <button
+                      onClick={() => navigate(`/teacher/assignments/new?duplicate=${a.id}`)}
+                      className="text-ink-400 hover:text-tesla-500 transition-colors p-1.5 rounded hover:bg-sepia-100"
+                      title="Reutilizar actividad en otro grupo"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => {
