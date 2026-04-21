@@ -208,6 +208,7 @@ export default function CreateAssignment() {
             })))
           }
         })
+    }
 
     if (isDuplicate && duplicateId && profile?.id) {
       supabase.from('video_assignments').select('*').eq('id', duplicateId).single()
@@ -246,8 +247,7 @@ export default function CreateAssignment() {
 
         setSelectedGroupIds([])
       }
-        
-    }
+  
   }, [profile?.id, isEdit, editId, isDuplicate, duplicateId])
 
   // ── Guardar ────────────────────────────────────────────────────────────────
