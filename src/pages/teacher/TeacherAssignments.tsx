@@ -5,7 +5,7 @@ import * as SupabaseTypes from '../../lib/supabase'
 
 const supabase = SupabaseTypes.supabase
 
-import { Plus, Video, Edit2, Trash2, Eye, EyeOff, Users, Copy } from 'lucide-react'
+import { Plus, Video, Edit2, Trash2, Eye, EyeOff, Users, Copy, CopyPlus } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -155,14 +155,14 @@ export default function TeacherAssignments() {
                     </button>
                   </td>
                   <td className="px-5 py-4">
-                    <button
-                      onClick={() => navigate(`/teacher/assignments/new?duplicate=${a.id}`)}
-                      className="text-ink-400 hover:text-tesla-500 transition-colors p-1.5 rounded hover:bg-sepia-100"
-                      title="Reutilizar actividad en otro grupo"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => navigate(`/teacher/assignments/new?duplicate=${a.id}`)}
+                        className="text-ink-400 hover:text-tesla-500 transition-colors p-1.5 rounded hover:bg-sepia-100"
+                        title="Reutilizar actividad en otro grupo"
+                      >
+                        <CopyPlus className="w-4 h-4" />
+                    </button>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/student/watch/${a.id}`)
