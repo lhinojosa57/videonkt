@@ -751,21 +751,22 @@ const autoSave = useCallback(async () => {
                   Agregar pregunta
                 </button>
               </div>
-               {(() => {
-                  const total = questions.filter(q => q.question_text.trim()).length
-                  const suma = questions.reduce((acc, q) => acc + (q.points || 0), 0)
-                  const ok = Math.abs(suma - 100) < 0.01
-                  return total > 0 ? (
-                    <div className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-2 ${
-                      ok ? 'bg-green-700/10 text-green-700' : 'bg-gold-500/10 text-gold-700'
-                    }`}>
-                      {ok ? '✓' : '⚠'} Suma de puntos: <strong>{suma}</strong> / 100
-                      {!ok && <span className="text-ink-400">— ajusta manualmente o reagrega una pregunta para redistribuir</span>}
-                    </div>
-                  ) : null
-                })()}
             </div>
           </div>
+           {(() => {
+              const total = questions.filter(q => q.question_text.trim()).length
+              const suma = questions.reduce((acc, q) => acc + (q.points || 0), 0)
+              const ok = Math.abs(suma - 100) < 0.01
+              return total > 0 ? (
+                <div className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-2 ${
+                  ok ? 'bg-green-700/10 text-green-700' : 'bg-gold-500/10 text-gold-700'
+                }`}>
+                  {ok ? '✓' : '⚠'} Suma de puntos: <strong>{suma}</strong> / 100
+                  {!ok && <span className="text-ink-400">— ajusta manualmente o reagrega una pregunta para redistribuir</span>}
+                </div>
+              ) : null
+            })()}
+
           {aiError && (
             <div className="mb-4 p-3 bg-crimson-500/10 border border-crimson-500/20 rounded text-sm font-body text-crimson-600">
               ⚠️ {aiError}
