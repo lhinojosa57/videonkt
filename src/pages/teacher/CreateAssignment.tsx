@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
@@ -62,6 +62,13 @@ export default function CreateAssignment() {
   const { id: editId } = useParams()
   const isEdit = !!editId
 
+  const [searchParams] = useSearchParams()
+  const duplicateId = searchParams.get('duplicate')
+  const isDuplicate = !!duplicateId && !isEdit
+
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [saving, setSaving] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [expandedQ, setExpandedQ] = useState<number | null>(0)
@@ -89,11 +96,7 @@ export default function CreateAssignment() {
   const [showAIConfig, setShowAIConfig] = useState(false)
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
 
-  const [searchParams] = useSearchParams()
-  const duplicateId = searchParams.get('duplicate')
-  const isDuplicate = !!duplicateId && !isEdit
-
-  // ── Analizar grupos seleccionados ──────────────────────────────────────────
+    // ── Analizar grupos seleccionados ──────────────────────────────────────────
   const { gradosUnicos, materiasUnicas, inferredGrado } = useMemo(() => {
     const selected = groups.filter(g => selectedGroupIds.includes(g.id))
     if (selected.length === 0) return { gradosUnicos: [], materiasUnicas: [], inferredGrado: null }
@@ -246,6 +249,17 @@ export default function CreateAssignment() {
           }
         }) 
 
+        useEffect(() => {
+          if (!isEdit) return
+          if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+          autoSaveTimer.current = setTimeout(() => {
+            autoSave()
+          }, 2000)
+          return () => {
+            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+          }
+        }, [title, videoUrl, dueDate, publishAt, selectedTema, selectedContenido, questions])
+
         setSelectedGroupIds([])
       }
   
@@ -341,6 +355,42 @@ export default function CreateAssignment() {
     }))
   }
 
+const autoSave = useCallback(async () => {
+  if (!isEdit || !editId || !profile?.id) return
+  if (!title.trim() || !videoUrl.trim()) return
+
+  setAutoSaveStatus('saving')
+
+  const payload = {
+    title: title.trim(),
+    video_url: videoUrl.trim(),
+    due_date: dueDate || null,
+    publish_at: publishAt || null,
+    tema_libro_id: selectedTema?.id ?? null,
+    nem_contenido_id: selectedContenido?.id ?? null,
+  }
+
+  await supabase.from('video_assignments').update(payload).eq('id', editId)
+
+  await supabase.from('questions').delete().eq('assignment_id', editId)
+  const qs = questions.filter(q => q.question_text.trim())
+  if (qs.length > 0) {
+    await supabase.from('questions').insert(qs.map((q, i) => ({
+      assignment_id: editId,
+      timestamp_seconds: q.timestamp_seconds,
+      question_type: q.question_type,
+      question_text: q.question_text,
+      options: q.question_type === 'multiple_choice' ? q.options.filter(o => o.text.trim()) : null,
+      correct_answer: q.question_type === 'open' ? null : q.correct_answer,
+      points: q.points,
+      order_index: i,
+    })))
+  }
+
+  setAutoSaveStatus('saved')
+  setTimeout(() => setAutoSaveStatus('idle'), 3000)
+}, [isEdit, editId, profile?.id, title, videoUrl, dueDate, publishAt, selectedTema, selectedContenido, questions])
+
   const addQuestion = () => {
   setQuestions(prev => redistributePoints([...prev, newQuestion(prev.length)]))
   setExpandedQ(questions.length)
@@ -433,17 +483,29 @@ export default function CreateAssignment() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
+        <div className="flex items-center gap-3">
           <h1 className="font-display text-3xl font-bold text-ink-900">
             {isEdit ? 'Editar actividad' : isDuplicate ? 'Reutilizar actividad' : 'Nueva actividad'}
           </h1>
-          <p className="font-body text-ink-600 mt-0.5">
-            {isEdit
-              ? 'Modifica el video y sus preguntas'
-              : isDuplicate
-              ? 'El video y las preguntas se copiaron — elige el grupo destino'
-              : 'Configura el video y sus preguntas interactivas'}
-          </p>
+          {isEdit && autoSaveStatus === 'saving' && (
+            <span className="text-xs font-mono text-ink-400 flex items-center gap-1">
+              <Loader className="w-3 h-3 animate-spin" /> Guardando…
+            </span>
+          )}
+          {isEdit && autoSaveStatus === 'saved' && (
+            <span className="text-xs font-mono text-green-600 flex items-center gap-1">
+              <Check className="w-3 h-3" /> Guardado
+            </span>
+          )}
         </div>
+        <p className="font-body text-ink-600 mt-0.5">
+          {isEdit
+            ? 'Modifica el video y sus preguntas'
+            : isDuplicate
+            ? 'El video y las preguntas se copiaron — elige el grupo destino'
+            : 'Configura el video y sus preguntas interactivas'}
+        </p>
+      </div>
       </div>
 
       <div className="space-y-6">
