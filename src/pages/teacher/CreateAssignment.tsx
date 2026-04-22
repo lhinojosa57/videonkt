@@ -743,7 +743,15 @@ const autoSave = useCallback(async () => {
                   </svg>
                   Pegar desde doc
                 </button>
-                {(() => {
+                <button
+                  onClick={addQuestion}
+                  className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Agregar pregunta
+                </button>
+              </div>
+               {(() => {
                   const total = questions.filter(q => q.question_text.trim()).length
                   const suma = questions.reduce((acc, q) => acc + (q.points || 0), 0)
                   const ok = Math.abs(suma - 100) < 0.01
@@ -756,14 +764,6 @@ const autoSave = useCallback(async () => {
                     </div>
                   ) : null
                 })()}
-                <button
-                  onClick={addQuestion}
-                  className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Agregar pregunta
-                </button>
-              </div>
             </div>
           </div>
           {aiError && (
