@@ -233,17 +233,18 @@ export default function CreateAssignment() {
           }
         })
 
-      supabase.from('questions').select('*').eq('assignment_id', duplicateId).order('order_index')
+       supabase.from('questions').select('*').eq('assignment_id', duplicateId).order('order_index')
         .then(({ data }) => {
           if (data && data.length > 0) {
-            setQuestions(data.map((q: any) => ({
+            const qs: QuestionForm[] = data.map((q: any) => ({
               ...q,
               id: undefined,
               correct_answer: q.correct_answer ?? '',
               options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
-            })))
+            }))
+            setQuestions(redistributePoints(qs))  // 👈 redistribuir al cargar
           }
-        })
+        }) 
 
         setSelectedGroupIds([])
       }
@@ -315,18 +316,39 @@ export default function CreateAssignment() {
     setSelectedGroupIds(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id])
 
   const handleImport = (imported: ParsedQuestion[]) => {
-    setQuestions(prev => [
+  setQuestions(prev => {
+    const combined = [
       ...prev.filter(q => q.question_text.trim()),
       ...imported.map((q, i) => ({
         ...q,
         order_index: prev.filter(p => p.question_text.trim()).length + i,
       })),
-    ])
-    setExpandedQ(null)
+    ]
+    return redistributePoints(combined)
+  })
+  setExpandedQ(null)
+}
+
+  const redistributePoints = (qs: QuestionForm[]) => {
+    const total = qs.length
+    if (total === 0) return qs
+    const base = Math.floor((100 / total) * 100) / 100  // 2 decimales
+    return qs.map((q, i) => ({
+      ...q,
+      points: i === total - 1
+        ? Math.round((100 - base * (total - 1)) * 100) / 100  // última pregunta absorbe el redondeo
+        : base
+    }))
   }
 
-  const addQuestion = () => { setQuestions(prev => [...prev, newQuestion(prev.length)]); setExpandedQ(questions.length) }
-  const removeQuestion = (idx: number) => { setQuestions(prev => prev.filter((_, i) => i !== idx)); setExpandedQ(null) }
+  const addQuestion = () => {
+  setQuestions(prev => redistributePoints([...prev, newQuestion(prev.length)]))
+  setExpandedQ(questions.length)
+  }
+  const removeQuestion = (idx: number) => {
+  setQuestions(prev => redistributePoints(prev.filter((_, i) => i !== idx)))
+  setExpandedQ(null)
+ }
   const updateQuestion = (idx: number, patch: Partial<QuestionForm>) =>
     setQuestions(prev => prev.map((q, i) => i === idx ? { ...q, ...patch } : q))
   const updateOption = (qIdx: number, optId: string, text: string) =>
@@ -386,7 +408,7 @@ export default function CreateAssignment() {
         order_index: questions.length + i,
       }))
 
-      setQuestions(prev => [...prev.filter(q => q.question_text.trim()), ...nuevas])
+      setQuestions(prev => redistributePoints([...prev.filter(q => q.question_text.trim()), ...nuevas]))
       setExpandedQ(questions.filter(q => q.question_text.trim()).length)
 
       } catch (err: any) {
@@ -659,6 +681,19 @@ export default function CreateAssignment() {
                   </svg>
                   Pegar desde doc
                 </button>
+                {(() => {
+                  const total = questions.filter(q => q.question_text.trim()).length
+                  const suma = questions.reduce((acc, q) => acc + (q.points || 0), 0)
+                  const ok = Math.abs(suma - 100) < 0.01
+                  return total > 0 ? (
+                    <div className={`text-xs font-mono px-3 py-1.5 rounded flex items-center gap-2 ${
+                      ok ? 'bg-green-700/10 text-green-700' : 'bg-gold-500/10 text-gold-700'
+                    }`}>
+                      {ok ? '✓' : '⚠'} Suma de puntos: <strong>{suma}</strong> / 100
+                      {!ok && <span className="text-ink-400">— ajusta manualmente o reagrega una pregunta para redistribuir</span>}
+                    </div>
+                  ) : null
+                })()}
                 <button
                   onClick={addQuestion}
                   className="flex items-center gap-1.5 text-sm bg-sepia-100 border border-parchment-300 text-ink-700 px-3 py-1.5 rounded hover:bg-sepia-200 transition-colors font-body"
