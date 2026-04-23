@@ -16,16 +16,22 @@ export default function TranscriptFallbackModal({ onImport, onClose, currentCoun
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState('')
 
-  const handleGenerate = async () => {
+ const handleGenerate = async () => {
     if (!transcript.trim()) return
     setParsing(true)
     setError('')
 
     try {
+      const cleanTranscript = transcript
+        .replace(/\d+ minutos? y \d+ segundos?/gi, '')
+        .replace(/^\d{1,2}:\d{2}\s*/gm, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+
       const prompt = [
         contexto ? `Contexto pedagógico:\n${contexto}` : '',
         config ? `Genera exactamente: ${config.multiple_choice} preguntas de opción múltiple, ${config.true_false} de verdadero/falso, ${config.open} preguntas abiertas.` : '',
-        `Transcripción del video:\n${transcript}`,
+        `Transcripción del video:\n${cleanTranscript}`,
         `\nGenera preguntas interactivas para este video basándote en la transcripción. Distribuye los timestamps proporcionalmente a lo largo del video.`,
       ].filter(Boolean).join('\n\n')
 

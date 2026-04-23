@@ -362,11 +362,11 @@ async function handleAllowRetry() {
                 No hay datos de actividad todavía.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '500px' }}>
+                  <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-sepia-100 border-b border-parchment-200">
-                      {['Estudiante', 'Correo', 'Actividad / Tema', 'Grupo', 'Inicio', 'Duración', 'Calificación', 'Estado', 'Ver detalle'].map(h => (
+                      {['Estudiante', 'Actividad / Tema', 'Grupo', 'Inicio', 'Duración', 'Calificación', 'Estado', 'Ver detalle'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500 whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -375,7 +375,7 @@ async function handleAllowRetry() {
                     {filtered.map((r, i) => (
                       <tr key={i} className="hover:bg-sepia-100/40 transition-colors">
                         <td className="px-4 py-3 font-body font-medium text-ink-800 whitespace-nowrap">{r.student_name}</td>
-                        <td className="px-4 py-3 text-ink-500 font-mono text-xs">{r.student_email}</td>
+                      
                         <td className="px-4 py-3">
                           <p className="font-body text-ink-800 leading-tight">{r.assignment_title}</p>
                           <p className="text-xs text-ink-400 mt-0.5">{r.topic}</p>

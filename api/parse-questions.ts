@@ -40,7 +40,7 @@ Reglas:
 
   const message = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1000,
+    max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: text }],
   })
@@ -50,7 +50,18 @@ Reglas:
     return new Response(JSON.stringify({ error: 'No text response' }), { status: 500 })
   }
 
-  return new Response(content.text, {
+ const clean = content.text.replace(/```json|```/g, '').trim()
+
+  try {
+    JSON.parse(clean)
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'La IA no devolvió JSON válido. Intenta de nuevo.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
+  return new Response(clean, {
     headers: { 'Content-Type': 'application/json' },
   })
 }
