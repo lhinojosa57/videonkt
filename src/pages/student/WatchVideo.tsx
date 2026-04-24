@@ -358,6 +358,15 @@ export default function WatchVideo() {
             style={{ border: 'none', display: 'block' }}
           />
 
+          {/* Capa bloqueadora de clics al iframe — evita que el estudiante pause el video */}
+          {videoStarted && activityState === 'playing' && (
+            <div
+              className="absolute inset-0"
+              style={{ zIndex: 1 }}
+              onClick={e => e.preventDefault()}
+            />
+          )}
+
           {/* Start overlay */}
           {!videoStarted && (
             <div className="absolute inset-0 bg-ink-900 flex items-center justify-center">
