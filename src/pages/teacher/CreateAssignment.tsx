@@ -381,6 +381,18 @@ const autoSave = useCallback(async () => {
   setTimeout(() => setAutoSaveStatus('idle'), 3000)
 }, [isEdit, editId, profile?.id, title, videoUrl, dueDate, publishAt, selectedTema, selectedContenido, questions])
 
+  // ── AutoSave trigger ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isEdit) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      autoSave()
+    }, 2000)
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    }
+  }, [title, videoUrl, dueDate, publishAt, selectedTema, selectedContenido, questions, autoSave, isEdit])
+
   const addQuestion = () => {
   setQuestions(prev => redistributePoints([...prev, newQuestion(prev.length)]))
   setExpandedQ(questions.length)
