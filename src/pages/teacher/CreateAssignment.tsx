@@ -242,23 +242,13 @@ export default function CreateAssignment() {
             const qs: QuestionForm[] = data.map((q: any) => ({
               ...q,
               id: undefined,
+              assignment_id: undefined,
               correct_answer: q.correct_answer ?? '',
               options: q.options ?? [{ id: 'a', text: '' }, { id: 'b', text: '' }],
             }))
             setQuestions(redistributePoints(qs))  // 👈 redistribuir al cargar
           }
         }) 
-
-        useEffect(() => {
-          if (!isEdit) return
-          if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-          autoSaveTimer.current = setTimeout(() => {
-            autoSave()
-          }, 2000)
-          return () => {
-            if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-          }
-        }, [title, videoUrl, dueDate, publishAt, selectedTema, selectedContenido, questions])
 
         setSelectedGroupIds([])
       }
