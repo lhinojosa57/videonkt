@@ -276,6 +276,7 @@ export default function WatchVideo() {
       .single()
 
     setFinalScore(Math.round(updatedSess?.score ?? 0))
+    setSessionCompleted(true) 
     setCompleted(true)
   }
 
