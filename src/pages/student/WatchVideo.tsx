@@ -223,7 +223,7 @@ export default function WatchVideo() {
       pointsEarned = Math.floor(activeQuestion.points * 0.5)
     }
 
-    await supabase.from('student_answers').upsert({
+   const { error } = await supabase.from('student_answers').upsert({
       session_id: session.id,
       question_id: activeQuestion.id,
       student_id: profile!.id,
@@ -231,6 +231,12 @@ export default function WatchVideo() {
       is_correct: isCorrect,
       points_earned: pointsEarned,
     })
+
+    if (error) {
+      console.error('Error guardando respuesta:', error)
+      setSubmitting(false)
+      return
+    }
 
     setAnsweredQuestions(prev => new Set([...prev, activeQuestion.id]))
     setSubmitting(false)
@@ -585,14 +591,15 @@ function QuestionOverlay({ question, currentAnswer, onAnswer, onSubmit, submitti
           </>
         )}
 
-        {showContinue && (
+       {showContinue && (
           <button
             onClick={onContinue}
-            className="w-full flex items-center justify-center gap-2 bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors mt-2"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 bg-crimson-500 text-parchment-50 py-3 rounded-sm font-body font-medium hover:bg-crimson-600 transition-colors mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Continuar video ▶
+            {submitting ? 'Guardando…' : 'Continuar video ▶'}
           </button>
-        )}
+        )} 
       </div>
     </div>
   )
