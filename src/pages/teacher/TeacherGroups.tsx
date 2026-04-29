@@ -53,6 +53,8 @@ export default function TeacherGroups() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [editingGroup, setEditingGroup] = useState<string | null>(null)
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const [groupMembers, setGroupMembers] = useState<Record<string, {id: string, full_name: string, email: string}[]>>({})
 
   const [form, setForm] = useState({
     name: '',
@@ -160,6 +162,22 @@ export default function TeacherGroups() {
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
+  const loadMembers = async (groupId: string) => {
+    if (expandedGroup === groupId) { setExpandedGroup(null); return }
+    setExpandedGroup(groupId)
+    if (groupMembers[groupId]) return
+    const { data } = await supabase
+      .from('group_members')
+      .select('profiles(id, full_name, email)')
+      .eq('group_id', groupId)
+    const members = (data ?? []).map((m: any) => ({
+      id: m.profiles?.id ?? '',
+      full_name: m.profiles?.full_name ?? m.profiles?.email ?? '—',
+      email: m.profiles?.email ?? '—',
+    }))
+    setGroupMembers(prev => ({ ...prev, [groupId]: members }))
+  }
+
   const getNombreCampo = (id: string | null) =>
     CAMPOS_FORMATIVOS.find(c => c.id === id)?.nombre ?? null
 
@@ -261,6 +279,31 @@ export default function TeacherGroups() {
                 <button onClick={() => copyCode(group.invite_code)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5">
                   {copiedCode === group.invite_code ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
+                <button
+                onClick={() => loadMembers(group.id)}
+                className="w-full mt-3 font-body text-xs text-ink-500 hover:text-gold-600 transition-colors flex items-center justify-center gap-1"
+              >
+                <Users className="w-3.5 h-3.5" />
+                {expandedGroup === group.id ? 'Ocultar miembros' : `Ver miembros (${group.student_count})`}
+              </button>
+
+              {expandedGroup === group.id && (
+                <div className="mt-3 border-t border-parchment-200 pt-3 space-y-1.5">
+                  {!groupMembers[group.id] ? (
+                    <p className="font-body text-xs text-ink-400 text-center py-2">Cargando...</p>
+                  ) : groupMembers[group.id].length === 0 ? (
+                    <p className="font-body text-xs text-ink-400 text-center py-2">Sin estudiantes aún</p>
+                  ) : (
+                    groupMembers[group.id].map(m => (
+                      <div key={m.id} className="flex items-center gap-2 text-xs font-body text-ink-700 py-1 px-2 rounded hover:bg-sepia-100">
+                        <Users className="w-3 h-3 text-ink-400 flex-shrink-0" />
+                        <span>{m.full_name}</span>
+                        <span className="text-ink-400 ml-auto">{m.email}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
               </div>
             </div>
           ))}
