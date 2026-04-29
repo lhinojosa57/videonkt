@@ -411,8 +411,6 @@ const autoSave = useCallback(async () => {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiError, setAiError] = useState('')
 
-  console.log('materiaFinal:', materiaFinal)
-  console.log('idiomaVideo:', idiomaVideo)
   // ── Generar preguntas con IA ───────────────────────────────────────────────
   const generateWithAI = async (config: AIConfig) => {
     if (!videoUrl.trim()) return
@@ -421,8 +419,7 @@ const autoSave = useCallback(async () => {
 
     // Calcular idioma aquí, no fuera
     const idiomaVideo = materiaFinal === 'Inglés' ? 'en' : 'es'
-    console.log('generateWithAI - materiaFinal:', materiaFinal, 'idioma:', idiomaVideo)
-
+    
     try {
       // Construir contexto pedagógico
       const contexto = [
