@@ -312,8 +312,12 @@ export default function CreateAssignment() {
       if (qError) { alert(`Error preguntas: ${qError.message}`); setSaving(false); return }
     }
 
-    setSaving(false)
-    navigate('/teacher/assignments')
+   setSaving(false)
+    if (isEdit) {
+      navigate('/teacher/assignments')
+    } else {
+      navigate(`/teacher/assignments/edit/${assignmentId}`)
+    }
   }
 
   const toggleGroup = (id: string) =>
