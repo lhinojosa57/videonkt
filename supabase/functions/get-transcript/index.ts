@@ -27,7 +27,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url, contexto } = await req.json()
+    const { url, contexto, idioma } = await req.json()
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL requerida' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -50,7 +50,7 @@ serve(async (req) => {
 
     // 1. Transcripcion
     let supadataRes = await fetch(
-      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&lang=es`,
+      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&lang=${idioma ?? 'es'}`,
       { headers: { 'x-api-key': supadataKey } }
     )
     if (!supadataRes.ok) {
@@ -117,7 +117,7 @@ ${transcriptForClaude}
 Genera 4 preguntas interactivas basadas en el contenido REAL del video:
 - 2 opcion multiple, 1 verdadero/falso, 1 pregunta abierta
 - El timestamp de cada pregunta debe ser cuando el video YA TERMINO de explicar ese tema, no cuando empieza. Busca el timestamp del ultimo segmento relacionado con ese contenido y agrega entre 5 y 10 segundos adicionales.
-- En espanol claro para secundaria
+- In ${idioma === 'en' ? 'English' : 'Spanish'}, clear and appropriate for middle school students
 - Las preguntas deben ser cortas y directas, maximo 15 palabras, para que el estudiante pueda leer y contestar en menos de 30 segundos
 - IMPORTANTE: Las 4 preguntas deben estar ordenadas cronologicamente segun el video. El timestamp de la pregunta 1 debe ser menor que el de la pregunta 2, que debe ser menor que el de la pregunta 3, y asi sucesivamente. NUNCA pongas una pregunta sobre contenido que aparece despues en el video.
 
