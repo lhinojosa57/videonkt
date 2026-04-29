@@ -410,6 +410,8 @@ const autoSave = useCallback(async () => {
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiError, setAiError] = useState('')
 
+  console.log('materiaFinal:', materiaFinal)
+  console.log('idiomaVideo:', idiomaVideo)
   // ── Generar preguntas con IA ───────────────────────────────────────────────
   const generateWithAI = async (config: AIConfig) => {
     if (!videoUrl.trim()) return
