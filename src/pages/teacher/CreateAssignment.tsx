@@ -441,7 +441,7 @@ const autoSave = useCallback(async () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${anonKey}`,
           },
-          body: JSON.stringify({ url: videoUrl.trim(), contexto })
+          body: JSON.stringify({ url: videoUrl.trim(), contexto, idioma: idiomaVideo })
         }
       )
       const data = await res.json()
