@@ -121,8 +121,9 @@ export default function CreateAssignment() {
   }, [selectedGroupIds, groups])
 
   const materiaFinal = materiasUnicas.length === 1 ? materiasUnicas[0] : selectedMateria
+  const idiomaVideo = materiaFinal === 'Inglés' ? 'en' : 'es'
   const necesitaElegirMateria = materiasUnicas.length > 1
-
+  
   // Resetear materia al cambiar grupos
   useEffect(() => { setSelectedMateria('') }, [selectedGroupIds])
 
