@@ -199,7 +199,6 @@ export default function TeacherGroups() {
             Nuevo grupo
           </button>
         </div>
-
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowArchived(false)}
@@ -236,76 +235,77 @@ export default function TeacherGroups() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredGroups.map(group => (
-            <div key={group.id} className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-5 hover:shadow-raised transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <h3 className="font-display text-lg font-semibold text-ink-800">{group.name}</h3>
-                  <div className="text-sm text-ink-500 font-body space-y-0.5 mt-0.5">
-                    {group.grado && <p>{group.grado} · {group.school_year}</p>}
-                    {group.campo_formativo_id && (
-                      <p className="text-xs text-ink-400">{getNombreCampo(group.campo_formativo_id)}</p>
-                    )}
-                    {group.materias && group.materias.length > 0 && (
-                      <p className="text-xs text-gold-600">📚 {group.materias.join(', ')}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => handleOpenEdit(group)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5" title="Editar grupo">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleArchive(group.id, group.archived)} className="text-ink-300 hover:text-gold-500 transition-colors p-1" title={group.archived ? 'Desarchivar' : 'Archivar'}>
-                    {group.archived ? '📂' : '📁'}
-                  </button>
-                </div>
-              </div>
+          <div key={group.id} className="bg-parchment-50 rounded-sm shadow-manuscript border border-parchment-200 p-5 hover:shadow-raised transition-shadow">
+  <div className="flex items-start justify-between mb-3">
+    <div className="flex-1">
+      <h3 className="font-display text-lg font-semibold text-ink-800">{group.name}</h3>
+      <div className="text-sm text-ink-500 font-body space-y-0.5 mt-0.5">
+        {group.grado && <p>{group.grado} · {group.school_year}</p>}
+        {group.campo_formativo_id && (
+          <p className="text-xs text-ink-400">{getNombreCampo(group.campo_formativo_id)}</p>
+        )}
+        {group.materias && group.materias.length > 0 && (
+          <p className="text-xs text-gold-600">📚 {group.materias.join(', ')}</p>
+        )}
+      </div>
+    </div>
+    <div className="flex items-center gap-1">
+      <button onClick={() => handleOpenEdit(group)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5" title="Editar grupo">
+        <Edit2 className="w-4 h-4" />
+      </button>
+      <button onClick={() => handleArchive(group.id, group.archived)} className="text-ink-300 hover:text-gold-500 transition-colors p-1" title={group.archived ? 'Desarchivar' : 'Archivar'}>
+        {group.archived ? '📂' : '📁'}
+      </button>
+    </div>
+  </div>
 
-              {group.description && (
-                <p className="text-sm text-ink-600 font-body mb-3 line-clamp-2">{group.description}</p>
-              )}
+  {group.description && (
+    <p className="text-sm text-ink-600 font-body mb-3 line-clamp-2">{group.description}</p>
+  )}
 
-              <div className="flex items-center gap-4 text-sm text-ink-500 mb-4">
-                <span className="flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5" />
-                  {group.student_count} estudiante{group.student_count !== 1 ? 's' : ''}
-                </span>
-              </div>
+  <div className="flex items-center gap-4 text-sm text-ink-500 mb-4">
+    <span className="flex items-center gap-1.5">
+      <Users className="w-3.5 h-3.5" />
+      {group.student_count} estudiante{group.student_count !== 1 ? 's' : ''}
+    </span>
+  </div>
 
-              <div className="bg-sepia-100 rounded px-3 py-2 flex items-center justify-between border border-parchment-200">
-                <div>
-                  <p className="text-xs text-ink-400 font-mono uppercase">Código de acceso</p>
-                  <p className="font-mono font-bold text-ink-800 tracking-widest text-lg">{group.invite_code}</p>
-                </div>
-                <button onClick={() => copyCode(group.invite_code)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5">
-                  {copiedCode === group.invite_code ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                </button>
-                <button
-                onClick={() => loadMembers(group.id)}
-                className="w-full mt-3 font-body text-xs text-ink-500 hover:text-gold-600 transition-colors flex items-center justify-center gap-1"
-              >
-                <Users className="w-3.5 h-3.5" />
-                {expandedGroup === group.id ? 'Ocultar miembros' : `Ver miembros (${group.student_count})`}
-              </button>
+  <div className="bg-sepia-100 rounded px-3 py-2 flex items-center justify-between border border-parchment-200">
+    <div>
+      <p className="text-xs text-ink-400 font-mono uppercase">Código de acceso</p>
+      <p className="font-mono font-bold text-ink-800 tracking-widest text-lg">{group.invite_code}</p>
+    </div>
+    <button onClick={() => copyCode(group.invite_code)} className="text-ink-400 hover:text-gold-500 transition-colors p-1.5">
+      {copiedCode === group.invite_code ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+    </button>
+  </div>
 
-              {expandedGroup === group.id && (
-                <div className="mt-3 border-t border-parchment-200 pt-3 space-y-1.5">
-                  {!groupMembers[group.id] ? (
-                    <p className="font-body text-xs text-ink-400 text-center py-2">Cargando...</p>
-                  ) : groupMembers[group.id].length === 0 ? (
-                    <p className="font-body text-xs text-ink-400 text-center py-2">Sin estudiantes aún</p>
-                  ) : (
-                    groupMembers[group.id].map(m => (
-                      <div key={m.id} className="flex items-center gap-2 text-xs font-body text-ink-700 py-1 px-2 rounded hover:bg-sepia-100">
-                        <Users className="w-3 h-3 text-ink-400 flex-shrink-0" />
-                        <span>{m.full_name}</span>
-                        <span className="text-ink-400 ml-auto">{m.email}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-              </div>
-            </div>
+  <button
+    onClick={() => loadMembers(group.id)}
+    className="w-full mt-3 font-body text-xs text-ink-500 hover:text-gold-600 transition-colors flex items-center justify-center gap-1"
+  >
+    <Users className="w-3.5 h-3.5" />
+    {expandedGroup === group.id ? 'Ocultar miembros' : `Ver miembros (${group.student_count})`}
+  </button>
+
+  {expandedGroup === group.id && (
+    <div className="mt-3 border-t border-parchment-200 pt-3 space-y-1.5">
+      {!groupMembers[group.id] ? (
+        <p className="font-body text-xs text-ink-400 text-center py-2">Cargando...</p>
+      ) : groupMembers[group.id].length === 0 ? (
+        <p className="font-body text-xs text-ink-400 text-center py-2">Sin estudiantes aún</p>
+      ) : (
+        groupMembers[group.id].map(m => (
+          <div key={m.id} className="flex items-center gap-2 text-xs font-body text-ink-700 py-1 px-2 rounded hover:bg-sepia-100">
+            <Users className="w-3 h-3 text-ink-400 flex-shrink-0" />
+            <span>{m.full_name}</span>
+            <span className="text-ink-400 ml-auto">{m.email}</span>
+          </div>
+        ))
+      )}
+    </div>
+  )}
+  </div>  
           ))}
         </div>
       )}
