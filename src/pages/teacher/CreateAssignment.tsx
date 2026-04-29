@@ -419,6 +419,10 @@ const autoSave = useCallback(async () => {
     setGeneratingAI(true)
     setAiError('')
 
+    // Calcular idioma aquí, no fuera
+    const idiomaVideo = materiaFinal === 'Inglés' ? 'en' : 'es'
+    console.log('generateWithAI - materiaFinal:', materiaFinal, 'idioma:', idiomaVideo)
+
     try {
       // Construir contexto pedagógico
       const contexto = [
