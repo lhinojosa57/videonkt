@@ -440,7 +440,7 @@ async function handleAllowRetry() {
               Ningún estudiante ha iniciado esta actividad.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '500px' }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-sepia-100 border-b border-parchment-200">
