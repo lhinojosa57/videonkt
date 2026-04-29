@@ -440,10 +440,10 @@ async function handleAllowRetry() {
               Ningún estudiante ha iniciado esta actividad.
             </div>
           ) : (
-            <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: '500px' }}>
+            <div style={{ maxHeight: '500px', overflowX: 'auto', overflowY: 'auto', position: 'relative' }}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-sepia-100 border-b border-parchment-200">
+                  <tr className="bg-sepia-100 border-b border-parchment-200" style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                     <th className="text-left px-4 py-3 text-xs font-mono uppercase tracking-wider text-ink-500 whitespace-nowrap sticky left-0 bg-sepia-100">
                       Estudiante
                     </th>
