@@ -98,29 +98,45 @@ useEffect(() => {
   }
 
   async function gradeOpenAnswer(answerId: string, questionPoints: number, multiplier: number) {
-    setSavingScore(answerId)
-    const pointsEarned = Math.round(questionPoints * multiplier)
-    await supabase
-      .from('student_answers')
-      .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
-      .eq('id', answerId)
-      const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
-    if (sessionId) await loadSessionAnswers(sessionId)
-    const { data: allAnswers } = await supabase
-      .from('student_answers')
-      .select('points_earned, question:questions(points)')
-      .eq('session_id', sessionId)
+  setSavingScore(answerId)
+  const pointsEarned = Math.round(questionPoints * multiplier)
+  
+  await supabase
+    .from('student_answers')
+    .update({ points_earned: pointsEarned, is_correct: multiplier > 0 })
+    .eq('id', answerId)
 
-    const totalPoints = (allAnswers ?? []).reduce((sum: number, a: any) => sum + (a.question?.points ?? 0), 0)
-    const earnedPoints = (allAnswers ?? []).reduce((sum: number, a: any) => sum + (a.points_earned ?? 0), 0)
-    const newScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
+  const sessionId = sessionAnswers.find(a => a.id === answerId)?.session_id
+  if (sessionId) await loadSessionAnswers(sessionId)
 
-    await supabase.from('student_sessions').update({ score: newScore }).eq('id', sessionId)
-    setSelectedSession((prev: any) => ({ ...prev, score: newScore }))
-    await load()
-    setSavingScore(null)
-  }
+  // ── CAMBIO: obtener el assignment_id de la sesión para sacar el total real ──
+  const { data: sessionData } = await supabase
+    .from('student_sessions')
+    .select('assignment_id')
+    .eq('id', sessionId)
+    .single()
 
+  const { data: allQuestions } = await supabase
+    .from('questions')
+    .select('points')
+    .eq('assignment_id', sessionData?.assignment_id)
+
+  const { data: allAnswers } = await supabase
+    .from('student_answers')
+    .select('points_earned')
+    .eq('session_id', sessionId)
+
+  // Total sobre TODAS las preguntas de la actividad, no solo las contestadas
+  const totalPoints = (allQuestions ?? []).reduce((sum, q: any) => sum + (q.points ?? 0), 0)
+  const earnedPoints = (allAnswers ?? []).reduce((sum, a: any) => sum + (a.points_earned ?? 0), 0)
+  const newScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
+
+  await supabase.from('student_sessions').update({ score: newScore }).eq('id', sessionId)
+  setSelectedSession((prev: any) => ({ ...prev, score: newScore }))
+  await load()
+  setSavingScore(null)
+}
+ 
   async function loadMatrixData(assignmentId: string) {
     setLoadingMatrix(true)
     const { data: questions } = await supabase
