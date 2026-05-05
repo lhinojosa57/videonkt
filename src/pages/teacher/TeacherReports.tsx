@@ -86,16 +86,49 @@ useEffect(() => {
   load()
 }, [profile?.id, load])
 
-  async function loadSessionAnswers(sessionId: string) {
-    setLoadingAnswers(true)
-    const { data } = await supabase
-      .from('student_answers')
-      .select('*, question:questions(*)')
-      .eq('session_id', sessionId)
-      .order('answered_at')
-    setSessionAnswers(data ?? [])
-    setLoadingAnswers(false)
-  }
+ async function loadSessionAnswers(sessionId: string) {
+  setLoadingAnswers(true)
+
+  // Obtener el assignment_id de la sesión
+  const { data: sessData } = await supabase
+    .from('student_sessions')
+    .select('assignment_id')
+    .eq('id', sessionId)
+    .single()
+
+  // Traer TODAS las preguntas de la actividad
+  const { data: allQuestions } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('assignment_id', sessData?.assignment_id)
+    .order('timestamp_seconds')
+
+  // Traer las respuestas que sí existen
+  const { data: answers } = await supabase
+    .from('student_answers')
+    .select('*')
+    .eq('session_id', sessionId)
+
+  // Combinar: una entrada por pregunta, con o sin respuesta
+  const merged = (allQuestions ?? []).map(q => {
+    const answer = (answers ?? []).find(a => a.question_id === q.id)
+    return answer
+      ? { ...answer, question: q }
+      : {
+          id: `no-answer-${q.id}`,
+          session_id: sessionId,
+          question_id: q.id,
+          question: q,
+          answer_text: null,
+          is_correct: false,
+          points_earned: 0,
+          answered_at: null,
+        }
+  })
+
+  setSessionAnswers(merged)
+  setLoadingAnswers(false)
+}
 
   async function gradeOpenAnswer(answerId: string, questionPoints: number, multiplier: number) {
   setSavingScore(answerId)
@@ -557,25 +590,37 @@ async function handleAllowRetry() {
                       {isOpen ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-ink-500 font-body">Calificación:</span>
-                          {[{ label: 'Completa', value: 1 }, { label: 'Parcial', value: 0.5 }, { label: 'Incorrecta', value: 0 }].map(opt => (
-                            <button
-                              key={opt.value}
-                              onClick={() => {
-                                gradeOpenAnswer(answer.id, q.points, opt.value)
-                              }}
-                              disabled={savingScore === answer.id}
-                              className={`text-xs px-3 py-1.5 rounded font-body font-medium transition-colors ${answer.points_earned === Math.round(q.points * opt.value) ? 'bg-crimson-500 text-parchment-50' : 'bg-sepia-100 text-ink-600 hover:bg-sepia-200'}`}
-                            >
-                              {savingScore === answer.id ? '…' : opt.label}
-                            </button>
-                          ))}
-                          <span className="text-xs font-mono text-ink-400 ml-1">{answer.points_earned}/{q.points} pts</span>
+                          {answer.answered_at === null ? (
+                            <span className="text-xs font-mono px-2 py-1 rounded bg-ink-100 text-ink-400">— Sin respuesta</span>
+                          ) : (
+                            <>
+                              {[{ label: 'Completa', value: 1 }, { label: 'Parcial', value: 0.5 }, { label: 'Incorrecta', value: 0 }].map(opt => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => {
+                                    gradeOpenAnswer(answer.id, q.points, opt.value)
+                                  }}
+                                  disabled={savingScore === answer.id}
+                                  className={`text-xs px-3 py-1.5 rounded font-body font-medium transition-colors ${answer.points_earned === Math.round(q.points * opt.value) ? 'bg-crimson-500 text-parchment-50' : 'bg-sepia-100 text-ink-600 hover:bg-sepia-200'}`}
+                                >
+                                  {savingScore === answer.id ? '…' : opt.label}
+                                </button>
+                              ))}
+                              <span className="text-xs font-mono text-ink-400 ml-1">{answer.points_earned}/{q.points} pts</span>
+                            </>
+                          )}
                         </div>
-                      ) : (
+                     ) : (
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-mono px-2 py-1 rounded ${answer.is_correct ? 'bg-green-700/10 text-green-700' : 'bg-crimson-500/10 text-crimson-500'}`}>
-                            {answer.is_correct ? '✓ Correcta' : '✗ Incorrecta'}
-                          </span>
+                          {answer.answered_at === null ? (
+                            <span className="text-xs font-mono px-2 py-1 rounded bg-ink-100 text-ink-400">
+                              — Sin respuesta
+                            </span>
+                          ) : (
+                            <span className={`text-xs font-mono px-2 py-1 rounded ${answer.is_correct ? 'bg-green-700/10 text-green-700' : 'bg-crimson-500/10 text-crimson-500'}`}>
+                              {answer.is_correct ? '✓ Correcta' : '✗ Incorrecta'}
+                            </span>
+                          )}
                           <span className="text-xs font-mono text-ink-400">{answer.points_earned}/{q.points} pts</span>
                         </div>
                       )}
