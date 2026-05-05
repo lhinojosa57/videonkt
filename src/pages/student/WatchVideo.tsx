@@ -85,26 +85,24 @@ export default function WatchVideo() {
       setSession(sess)
 
      if (sess && (sess.is_completed || sess.duration_seconds > 0 || sess.max_video_position > 0)) {
-        // Recalcular score desde las respuestas reales, no confiar en sess.score
-        const { data: answers } = await supabase
-          .from('student_answers')
-          .select('points_earned, question:questions(points)')
-          .eq('session_id', sess.id)
+      const { data: answers } = await supabase
+        .from('student_answers')
+        .select('points_earned')
+        .eq('session_id', sess.id)
 
-        const totalPoints = (answers ?? []).reduce((sum: number, a: any) => sum + (a.question?.points ?? 0), 0)
-        const earnedPoints = (answers ?? []).reduce((sum: number, a: any) => sum + (a.points_earned ?? 0), 0)
-        const realScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
+      // ✅ Denominador = todas las preguntas de la actividad, no solo las contestadas
+      const totalPoints = (qRes.data ?? []).reduce((sum: number, q: any) => sum + (q.points ?? 0), 0)
+      const earnedPoints = (answers ?? []).reduce((sum: number, a: any) => sum + (a.points_earned ?? 0), 0)
+      const realScore = totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0
 
-        // Actualizar el score en Supabase también
-        await supabase.from('student_sessions').update({ score: realScore }).eq('id', sess.id)
+      await supabase.from('student_sessions').update({ score: realScore }).eq('id', sess.id)
 
-        setFinalScore(realScore)
-        setSessionCompleted(sess.is_completed)
-        setCompleted(true)
-        setLoading(false)
-        return
-      }
-
+      setFinalScore(realScore)
+      setSessionCompleted(sess.is_completed)
+      setCompleted(true)
+      setLoading(false)
+      return
+    }
       if (sess?.id) {
         const { data: existingAnswers } = await supabase
           .from('student_answers').select('*').eq('session_id', sess.id)
