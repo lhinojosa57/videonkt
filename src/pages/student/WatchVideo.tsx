@@ -371,8 +371,8 @@ export default function WatchVideo() {
             src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', true) : 'about:blank'}
             width="100%"
             height="100%"
-            allow="autoplay; encrypted-media"
-            allowFullScreen={false}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
             style={{ border: 'none', display: 'block' }}
           />
 
