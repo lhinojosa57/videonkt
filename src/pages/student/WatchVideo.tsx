@@ -4,6 +4,8 @@ import { useAuth } from '../../lib/auth'
 import * as SupabaseTypes from '../../lib/supabase'
 import { CheckCircle, ArrowLeft, Send, Volume2, VolumeX } from 'lucide-react'
 
+// Detectar Safari/iOS
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
 const supabase = SupabaseTypes.supabase
 
 type ActivityState = 'playing' | 'paused_question' | 'time_up'
@@ -368,7 +370,11 @@ export default function WatchVideo() {
         <div className="w-full aspect-video max-h-[calc(100vh-64px)] relative">
           <iframe
             ref={iframeRef}
-            src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', true) : 'about:blank'}
+            src={videoStarted
+              ? getEmbedUrl(assignment?.video_url ?? '', true)
+              : isSafari
+                ? getEmbedUrl(assignment?.video_url ?? '', false)
+                : 'about:blank'}
             width="100%"
             height="100%"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
@@ -388,10 +394,12 @@ export default function WatchVideo() {
 
           {/* Start overlay */}
           {!videoStarted && (
-            <div className="absolute inset-0 bg-ink-900 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center"
+              style={{ background: isSafari ? 'transparent' : '#0f0f0f' }}>
               <button
                 onClick={handleStartVideo}
                 className="flex items-center gap-3 bg-tesla-500 text-parchment-50 px-10 py-5 rounded-sm font-display text-2xl font-semibold hover:bg-tesla-600 transition-colors shadow-raised"
+                style={{ zIndex: 2, position: 'relative' }}
               >
                 ▶ Iniciar video
               </button>
