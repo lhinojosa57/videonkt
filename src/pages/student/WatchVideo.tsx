@@ -368,12 +368,13 @@ export default function WatchVideo() {
         <div className="w-full aspect-video max-h-[calc(100vh-64px)] relative">
           <iframe
             ref={iframeRef}
-            src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', true) : 'about:blank'}
+            src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', false) : 'about:blank'}
             width="100%"
             height="100%"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
             style={{ border: 'none', display: 'block' }}
+            referrerPolicy="no-referrer-when-downgrade"
           />
 
           {/* Capa bloqueadora de clics al iframe — evita que el estudiante pause el video */}
