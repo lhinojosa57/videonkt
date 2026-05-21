@@ -1,7 +1,7 @@
-// import React from 'react'
+import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { LogOut, Users, Home, Video, BarChart2, BookOpen, ShieldCheck } from 'lucide-react'
+import { LogOut, Users, Home, Video, BarChart2, BookOpen, ShieldCheck, Menu, X } from 'lucide-react'
 
 const ADMIN_EMAIL = 'sistemas@nikolatesla.edu.mx'
 
@@ -10,6 +10,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const isTeacher = profile?.role === 'teacher'
   const isAdmin = profile?.email === ADMIN_EMAIL
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const teacherLinks = [
     { to: '/teacher', label: 'Inicio', icon: Home, end: true },
@@ -26,44 +27,65 @@ export default function Layout() {
     navigate('/login')
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-60 bg-gray-900 flex flex-col shadow-raised flex-shrink-0">
-        <div className="p-5 border-b border-ink-700">
-          <div className="flex items-center gap-3">
-            <img src="/logo-nikola-tesla.png" alt="Colegio Nikola Tesla" className="w-10 h-10 object-contain" />
-            <div>
-              <span className="font-display text-lg font-bold text-parchment-100 block leading-tight">VideoNKT</span>
-              <span className="text-[10px] text-ink-400 uppercase tracking-wider font-mono">Colegio Nikola Tesla</span>
-            </div>
-          </div>
-          <p className="text-ink-500 text-xs font-mono mt-2 ml-0.5 uppercase tracking-wider">
-            {isTeacher ? 'Panel Docente' : 'Panel Estudiante'}
-          </p>
-        </div>
-
-        <div className="p-4 border-b border-ink-700">
-          <div className="flex items-center gap-3">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-gold-400/40" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm">
-                {profile?.full_name?.[0]?.toUpperCase() ?? '?'}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-parchment-100 text-sm font-body font-medium truncate">{profile?.full_name}</p>
-              <p className="text-ink-400 text-xs truncate">{profile?.email}</p>
-            </div>
+  const sidebarContent = (
+    <>
+      <div className="p-5 border-b border-ink-700">
+        <div className="flex items-center gap-3">
+          <img src="/logo-nikola-tesla.png" alt="Colegio Nikola Tesla" className="w-10 h-10 object-contain" />
+          <div>
+            <span className="font-display text-lg font-bold text-parchment-100 block leading-tight">VideoNKT</span>
+            <span className="text-[10px] text-ink-400 uppercase tracking-wider font-mono">Colegio Nikola Tesla</span>
           </div>
         </div>
+        <p className="text-ink-500 text-xs font-mono mt-2 ml-0.5 uppercase tracking-wider">
+          {isTeacher ? 'Panel Docente' : 'Panel Estudiante'}
+        </p>
+      </div>
 
-        <nav className="flex-1 p-3 space-y-0.5">
-          {links.map(({ to, label, icon: Icon, end }) => (
+      <div className="p-4 border-b border-ink-700">
+        <div className="flex items-center gap-3">
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-gold-400/40" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm">
+              {profile?.full_name?.[0]?.toUpperCase() ?? '?'}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-parchment-100 text-sm font-body font-medium truncate">{profile?.full_name}</p>
+            <p className="text-ink-400 text-xs truncate">{profile?.email}</p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 p-3 space-y-0.5">
+        {links.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={() => setMenuOpen(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body transition-all ${
+                isActive
+                  ? 'bg-gold-500/20 text-gold-300 font-medium border-l-2 border-gold-400'
+                  : 'text-parchment-300 hover:text-parchment-100 hover:bg-ink-800'
+              }`
+            }
+          >
+            <Icon className="w-4 h-4 flex-shrink-0" />
+            {label}
+          </NavLink>
+        ))}
+
+        {isAdmin && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-ink-500 text-xs font-mono uppercase tracking-wider">Administración</p>
+            </div>
             <NavLink
-              key={to}
-              to={to}
-              end={end}
+              to="/teacher/admin/teachers"
+              onClick={() => setMenuOpen(false)}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body transition-all ${
                   isActive
@@ -72,46 +94,60 @@ export default function Layout() {
                 }`
               }
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+              Docentes
             </NavLink>
-          ))}
+          </>
+        )}
+      </nav>
 
-          {/* Sección admin — solo para sistemas@nikolatesla.edu.mx */}
-          {isAdmin && (
-            <>
-              <div className="pt-3 pb-1 px-3">
-                <p className="text-ink-500 text-xs font-mono uppercase tracking-wider">Administración</p>
-              </div>
-              <NavLink
-                to="/teacher/admin/teachers"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body transition-all ${
-                    isActive
-                      ? 'bg-gold-500/20 text-gold-300 font-medium border-l-2 border-gold-400'
-                      : 'text-parchment-300 hover:text-parchment-100 hover:bg-ink-800'
-                  }`
-                }
-              >
-                <ShieldCheck className="w-4 h-4 flex-shrink-0" />
-                Docentes
-              </NavLink>
-            </>
-          )}
-        </nav>
+      <div className="p-3 border-t border-ink-700">
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body text-parchment-300 hover:text-crimson-400 hover:bg-ink-800 w-full transition-all"
+        >
+          <LogOut className="w-4 h-4" />
+          Cerrar sesión
+        </button>
+      </div>
+    </>
+  )
 
-        <div className="p-3 border-t border-ink-700">
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded text-sm font-body text-parchment-300 hover:text-crimson-400 hover:bg-ink-800 w-full transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            Cerrar sesión
-          </button>
-        </div>
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+
+      {/* Sidebar desktop — siempre visible en md+ */}
+      <aside className="hidden md:flex w-60 bg-gray-900 flex-col shadow-raised flex-shrink-0">
+        {sidebarContent}
       </aside>
 
-      <main className="flex-1 overflow-auto">
+      {/* Header móvil */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-gray-900 border-b border-ink-700 flex items-center gap-3 px-4 py-3">
+        <button onClick={() => setMenuOpen(true)} className="text-parchment-300 hover:text-parchment-100">
+          <Menu className="w-6 h-6" />
+        </button>
+        <img src="/logo-nikola-tesla.png" alt="" className="w-7 h-7 object-contain" />
+        <span className="font-display font-bold text-parchment-100 text-base">VideoNKT</span>
+      </div>
+
+      {/* Drawer móvil */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="w-72 bg-gray-900 flex flex-col shadow-raised overflow-y-auto">
+            <div className="flex items-center justify-end p-3 border-b border-ink-700">
+              <button onClick={() => setMenuOpen(false)} className="text-parchment-300 hover:text-parchment-100 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {sidebarContent}
+          </div>
+          {/* Overlay para cerrar */}
+          <div className="flex-1 bg-ink-900/60" onClick={() => setMenuOpen(false)} />
+        </div>
+      )}
+
+      {/* Contenido principal */}
+      <main className="flex-1 overflow-auto md:pt-0 pt-14">
         <Outlet />
       </main>
     </div>
