@@ -368,7 +368,7 @@ export default function WatchVideo() {
         <div className="w-full aspect-video max-h-[calc(100vh-64px)] relative">
           <iframe
             ref={iframeRef}
-            src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', false) : 'about:blank'}
+            src={videoStarted ? getEmbedUrl(assignment?.video_url ?? '', true) : 'about:blank'}
             width="100%"
             height="100%"
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
