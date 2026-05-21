@@ -15,8 +15,8 @@ function getEmbedUrl(url: string, autoplay: boolean, startSecond = 0): string {
   if (ytMatch) {
     const start = startSecond > 0 ? `&start=${startSecond}` : ''
     const params = autoplay
-      ? `?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&controls=0${start}`
-      : `?autoplay=0&rel=0&modestbranding=1&iv_load_policy=3&controls=0${start}`
+      ? `?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3&controls=0&playsinline=1${start}`
+      : `?autoplay=0&rel=0&modestbranding=1&iv_load_policy=3&controls=0&playsinline=1${start}`
     return `https://www.youtube-nocookie.com/embed/${ytMatch[1]}` + params
   }
   return url
