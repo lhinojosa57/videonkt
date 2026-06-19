@@ -377,7 +377,7 @@ export default function WatchVideo() {
                 : 'about:blank'}
             width="100%"
             height="100%"
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture; playsinline"
             allowFullScreen
             style={{ border: 'none', display: 'block' }}
             referrerPolicy="no-referrer-when-downgrade"
